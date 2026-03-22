@@ -97,12 +97,12 @@ const GLOBAL_UPGRADES = Object.freeze([
     effectDesc: lv => `SPORE 공격력 +${lv * 3}%, 슬로우 지속 +${lv * 5}%`,
   },
   {
-    id: 'NEST_SHIELD',
-    name: '둥지 보호막',
+    id: 'WALL_DEFENSE',
+    name: '방벽 방어력',
     icon: '🛡️',
     maxLv: 30,
     cost: [200,270,360,480,640,850,1130,1500,1990,2640,3500,4640,6150,8150,10800,14310,18970,25130,33270,44060,58350,77300,102400,135600,179600,238000,315300,417800,553400,733000],
-    effectDesc: lv => `NEST 피해 ${(lv * 1.5).toFixed(1)}% 감소`,
+    effectDesc: lv => `방어벽 피해 ${(lv * 2).toFixed(0)}% 감소`,
   },
   {
     id: 'RESOURCE_BOOST',
@@ -117,7 +117,7 @@ const GLOBAL_UPGRADES = Object.freeze([
     name: '방벽 강화',
     icon: '🧱',
     maxLv: 30,
-    cost: [120,159,211,280,371,492,652,864,1145,1517,2010,2663,3529,4676,6195,8208,10876,14410,19093,25293,33518,44406,58838,77970,103295,136851,181368,240338,318448,421913],
+    cost: [200,270,360,480,640,850,1130,1500,1990,2640,3500,4640,6150,8150,10800,14310,18970,25130,33270,44060,58350,77300,102400,135600,179600,238000,315300,417800,553400,733000],
     effectDesc: lv => `WALL HP 최대치 +${lv * 3}%`,
   },
 ]);
@@ -318,7 +318,27 @@ function getBuildingCenter(b) {
   };
 }
 
-/** 9지점 BLOCKED 충돌 검사 — 적 이동 및 분리 양쪽에서 사용 */
+/** 통과 불가 타일 판정 — BLOCKED 또는 건물 타일이면 true */
+function isSolidTile(tile) {
+  return tile === TILE.BLOCKED || tile === TILE.WALL || tile === TILE.THORN
+      || tile === TILE.SPORE || tile === TILE.REPAIR_BLD || tile === TILE.RESOURCE || tile === TILE.NEST;
+}
+
+/** 9지점 고체 타일 충돌 검사 — 적 이동 및 분리 양쪽에서 사용 */
+function hitsSolidTile(px, py, rad) {
+  const offsets = [
+    [0,0], [-rad,0], [rad,0], [0,-rad], [0,rad],
+    [-rad,-rad], [rad,-rad], [-rad,rad], [rad,rad],
+  ];
+  for (const [ox, oy] of offsets) {
+    const c = Math.floor((px + ox) / TILE_SIZE);
+    const r = Math.floor((py + oy) / TILE_SIZE);
+    if (c >= 0 && c < COLS && r >= 0 && r < ROWS && isSolidTile(G.grid[r][c])) return true;
+  }
+  return false;
+}
+
+/** 9지점 BLOCKED 충돌 검사 — 이동 전용 (건물 타일은 통과 허용, 인접 건물 공격을 위해) */
 function hitsBlockedTile(px, py, rad) {
   const offsets = [
     [0,0], [-rad,0], [rad,0], [0,-rad], [0,rad],
@@ -530,7 +550,7 @@ function initGame() {
       SELF_REPAIR:    0,
       THORN_BOOST:    0,
       SPORE_BOOST:    0,
-      NEST_SHIELD:    0,
+      WALL_DEFENSE:   0,
       RESOURCE_BOOST: 0,
       WALL_FORTIFY:   0,
     },
@@ -982,8 +1002,21 @@ function onTileClicked(col, row) {
   if (G.state === STATE.PREP || G.state === STATE.COUNTDOWN || G.state === STATE.WAVE) {
     // 배치 모드 중이면 건물 배치 처리
     if (sel && sel !== 'NEST') {
-      // ENTRANCE 타일에는 WALL만 배치 가능
-      const canPlace = currentTile === TILE.EMPTY || (currentTile === TILE.ENTRANCE && sel === 'WALL');
+      // NEST 건설 전에는 다른 건물 배치 불가
+      if (!G.nestBuilding || !G.nestBuilding.built) {
+        showStatus('먼저 핵심 둥지를 건설하세요.');
+        return;
+      }
+      // 외벽 안에서만 건설 가능 (입구에는 WALL만 허용)
+      // 외벽 내부 판정: 기지 외벽 행 범위(row 1~13) 내이고 좌우벽 사이
+      const isInsideBase = row >= 1 && row <= 13
+        && G.distanceMap && G.distanceMap[row][col] < Infinity;
+      const isEntrance = currentTile === TILE.ENTRANCE;
+      if (!isInsideBase && !isEntrance) {
+        showStatus('외벽 안에서만 건설할 수 있습니다.');
+        return;
+      }
+      const canPlace = currentTile === TILE.EMPTY || (isEntrance && sel === 'WALL');
       if (!canPlace) {
         // 해당 위치에 건물이 있으면 배치 취소 후 패널 오픈 (다중 타일 건물 대응)
         const existingBuilding = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
@@ -1932,9 +1965,9 @@ function resolveCapsuleCollisions() {
     b.x = Math.max(b.radius, Math.min(COLS * TILE_SIZE - b.radius, b.x));
     b.y = Math.max(b.radius, Math.min(ROWS * TILE_SIZE - b.radius, b.y));
 
-    // BLOCKED 타일 진입 방지 — 9지점 검사 (공용 함수 사용)
-    if (hitsBlockedTile(a.x, a.y, a.radius)) { a.x = aOldX; a.y = aOldY; }
-    if (hitsBlockedTile(b.x, b.y, b.radius)) { b.x = bOldX; b.y = bOldY; }
+    // 고체 타일(BLOCKED + 건물) 진입 방지 — 분리 push로 벽/건물 너머로 밀려나는 것 차단
+    if (hitsSolidTile(a.x, a.y, a.radius)) { a.x = aOldX; a.y = aOldY; }
+    if (hitsSolidTile(b.x, b.y, b.radius)) { b.x = bOldX; b.y = bOldY; }
   }
 
   // ── 공간 분할 그리드 구성 ───────────────────────────────────────────
@@ -2062,10 +2095,10 @@ function pursueTarget(e, dt) {
         fireEnemyProjectile(e, target);
       } else {
         let dmg = e.attackDmg;
-        if (target.type === 'NEST') {
-          const shieldLv = G.globalUpgrades.NEST_SHIELD;
-          const reduction = 1 - shieldLv * 0.015;
-          dmg = Math.round(dmg * reduction);
+        if (target.type === 'WALL') {
+          const defLv = G.globalUpgrades.WALL_DEFENSE;
+          dmg = Math.round(dmg * (1 - defLv * 0.02));
+          if (dmg < 1) dmg = 1; // 최소 1 피해
         }
         target.hp -= dmg;
         const tc = getBuildingCenter(target);
@@ -2364,12 +2397,11 @@ function updateEnemyProjectiles(dt) {
       const tp = getBuildingCenter(target);
       const d  = Math.hypot(p.x - tp.x, p.y - tp.y);
       if (d < TILE_SIZE * 0.6) {
-        // STRUCTURE는 모든 공격 배율 1.0 → 직접 적용 (NEST_SHIELD가 있으면 NEST 피해 감소)
         let dmg = p.damage;
-        if (target.type === 'NEST') {
-          const shieldLv = G.globalUpgrades.NEST_SHIELD;
-          const reduction = 1 - shieldLv * 0.015;
-          dmg = Math.round(dmg * reduction);
+        if (target.type === 'WALL') {
+          const defLv = G.globalUpgrades.WALL_DEFENSE;
+          dmg = Math.round(dmg * (1 - defLv * 0.02));
+          if (dmg < 1) dmg = 1;
         }
         target.hp -= dmg;
         const btc = getBuildingCenter(target);
@@ -2524,7 +2556,13 @@ function openBuildingPanel(building) {
     secHeader.textContent = '── 글로벌 업그레이드 ──';
     bpActions.appendChild(secHeader);
 
+    // 방벽 업그레이드 묶음 (방어력 + 강화)를 한 줄에 표시
+    const WALL_UPG_IDS = ['WALL_DEFENSE', 'WALL_FORTIFY'];
+
     for (const upg of GLOBAL_UPGRADES) {
+      // 방벽 업그레이드는 아래에서 묶어서 표시
+      if (WALL_UPG_IDS.includes(upg.id)) continue;
+
       const curLv = G.globalUpgrades[upg.id];
       const btn = document.createElement('button');
       btn.className = 'bp-btn upgrade';
@@ -2533,7 +2571,7 @@ function openBuildingPanel(building) {
         btn.textContent = `${upg.icon} ${upg.name} Lv.${curLv} (최대)`;
         btn.classList.add('disabled');
       } else {
-        const cost     = upg.cost[curLv]; // curLv=0이면 cost[0]=첫 구매 비용
+        const cost     = upg.cost[curLv];
         const canAfford = G.resource >= cost;
         btn.textContent = `${upg.icon} ${upg.name} Lv.${curLv}→${curLv + 1} (${cost}자원)`;
         btn.title = `현재: ${upg.effectDesc(curLv)}\n다음: ${upg.effectDesc(curLv + 1)}`;
@@ -2544,18 +2582,56 @@ function openBuildingPanel(building) {
           if (G.resource < c) { showStatus('자원 부족'); return; }
           G.resource -= c;
           G.globalUpgrades[upg.id]++;
-          // SELF_REPAIR 첫 구매 시 타이머 초기화
           if (upg.id === 'SELF_REPAIR' && G.globalUpgrades.SELF_REPAIR === 1) {
             G.repairTimer = HEAL_INTERVAL;
           }
-          // WALL_FORTIFY 구매 시 기존 WALL hpMax 재계산
-          if (upg.id === 'WALL_FORTIFY') recalcWallHp();
           updateHUD();
-          openBuildingPanel(building); // 패널 갱신
+          openBuildingPanel(building);
         });
       }
       bpActions.appendChild(btn);
     }
+
+    // ── 방벽 업그레이드 묶음 (나란히 표시) ──
+    const wallHeader = document.createElement('div');
+    wallHeader.style.cssText = 'font-size:11px;color:#7070a0;margin-top:4px;width:100%';
+    wallHeader.textContent = '── 방벽 업그레이드 ──';
+    bpActions.appendChild(wallHeader);
+
+    const wallRow = document.createElement('div');
+    wallRow.style.cssText = 'display:flex;gap:6px;width:100%';
+
+    for (const uid of WALL_UPG_IDS) {
+      const upg = GLOBAL_UPGRADES.find(u => u.id === uid);
+      if (!upg) continue;
+      const curLv = G.globalUpgrades[upg.id];
+      const btn = document.createElement('button');
+      btn.className = 'bp-btn upgrade';
+      btn.style.flex = '1';
+
+      if (curLv >= upg.maxLv) {
+        btn.textContent = `${upg.icon} ${upg.name} Lv.${curLv} (최대)`;
+        btn.classList.add('disabled');
+      } else {
+        const cost = upg.cost[curLv];
+        const canAfford = G.resource >= cost;
+        btn.textContent = `${upg.icon} ${upg.name} Lv.${curLv}→${curLv+1} (${cost})`;
+        btn.title = `현재: ${upg.effectDesc(curLv)}\n다음: ${upg.effectDesc(curLv+1)}`;
+        if (!canAfford) btn.classList.add('disabled');
+        btn.addEventListener('click', () => {
+          if (G.globalUpgrades[upg.id] >= upg.maxLv) return;
+          const c = upg.cost[G.globalUpgrades[upg.id]];
+          if (G.resource < c) { showStatus('자원 부족'); return; }
+          G.resource -= c;
+          G.globalUpgrades[upg.id]++;
+          if (upg.id === 'WALL_FORTIFY') recalcWallHp();
+          updateHUD();
+          openBuildingPanel(building);
+        });
+      }
+      wallRow.appendChild(btn);
+    }
+    bpActions.appendChild(wallRow);
   } else {
     // 진화 버튼 (NEST 제외) — 모든 건물이 레벨 배열 기반
     if (def.upgradeCost) {
@@ -2588,6 +2664,7 @@ function openBuildingPanel(building) {
       }
       bpActions.appendChild(upgBtn);
     }
+
   }
 
   // 철거 버튼 (NEST 제외)
