@@ -1,0 +1,378 @@
+/* ============================================================
+   괴생명체 디펜스 — 스타일시트
+   설계 의도: 캔버스가 게임의 주 렌더링 영역이며, HTML/CSS는
+   UI 오버레이만 담당한다. 모바일 우선으로 터치 영역을 48px 이상 보장.
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a0f;
+  font-family: 'Courier New', Courier, monospace;
+  color: #d0d0e0;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none; /* 기본 터치 스크롤 방지 */
+}
+
+/* ── 게임 컨테이너 ── */
+#game-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* ── 캔버스 ── */
+#game-canvas {
+  display: block;
+  /* JS에서 정확한 크기를 계산해 inline style로 주입 */
+  image-rendering: pixelated;
+  cursor: crosshair;
+  flex-shrink: 0;
+}
+
+/* ── 상단 HUD ── */
+#hud-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(5, 5, 15, 0.85);
+  border-bottom: 1px solid #2a2a4a;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.hud-label {
+  color: #7070a0;
+  font-size: 11px;
+}
+
+.hud-value {
+  color: #a0e0a0;
+  font-size: 15px;
+  min-width: 40px;
+  text-align: right;
+}
+
+#hud-timer .hud-value {
+  color: #e0c060;
+}
+
+#hud-wave .hud-value {
+  color: #c080e0;
+  min-width: 100px;
+  font-size: 13px;
+}
+
+#hud-hp .hud-value {
+  color: #e06060;
+}
+
+/* ── 하단 건물 선택 버튼 패널 ── */
+#build-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(5, 5, 15, 0.9);
+  border-top: 1px solid #2a2a4a;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+/* 건물 선택 버튼 — 최소 48px (모바일 터치 사이즈) */
+.build-btn {
+  min-width: 64px;
+  min-height: 52px;
+  padding: 6px 10px;
+  border: 2px solid #3a3a6a;
+  border-radius: 6px;
+  background: #12122a;
+  color: #c0c0e0;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.build-btn:hover,
+.build-btn:active {
+  background: #1e1e3e;
+  border-color: #6060a0;
+}
+
+.build-btn.selected {
+  border-color: #80c0ff;
+  background: #1a2040;
+  box-shadow: 0 0 8px rgba(128, 192, 255, 0.4);
+}
+
+.build-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.build-btn .btn-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.build-btn .btn-name {
+  font-size: 10px;
+  color: #9090b0;
+}
+
+.build-btn .btn-cost {
+  font-size: 10px;
+  color: #80d080;
+}
+
+/* ── 게임 오버 / 상태 오버레이 ── */
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 20;
+  gap: 16px;
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+#overlay-title {
+  font-size: 32px;
+  font-weight: bold;
+  color: #e060a0;
+  text-shadow: 0 0 20px rgba(220, 80, 150, 0.8);
+  text-align: center;
+}
+
+#overlay-subtitle {
+  font-size: 15px;
+  color: #a0a0c0;
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.overlay-btn {
+  min-width: 140px;
+  min-height: 48px;
+  padding: 10px 24px;
+  border: 2px solid #6060c0;
+  border-radius: 8px;
+  background: #18183a;
+  color: #c0c0f0;
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.overlay-btn:hover,
+.overlay-btn:active {
+  background: #28285a;
+  border-color: #9090e0;
+  color: #ffffff;
+}
+
+/* ── 상태 메시지 (화면 중앙 플래시) ── */
+#status-msg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  font-weight: bold;
+  color: #ffe060;
+  text-shadow: 0 0 16px rgba(255, 220, 80, 0.9);
+  pointer-events: none;
+  z-index: 15;
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+
+#status-msg.visible {
+  opacity: 1;
+}
+
+/* ── 반응형: 아주 좁은 화면 ── */
+@media (max-width: 400px) {
+  .build-btn {
+    min-width: 52px;
+    min-height: 52px;
+    padding: 4px 6px;
+  }
+  .build-btn .btn-name {
+    display: none;
+  }
+}
+
+/* ── 건물 정보/관리 패널 ── */
+#building-panel {
+  position: absolute;
+  bottom: 72px; /* build-panel 위 */
+  left: 0;
+  right: 0;
+  background: rgba(5, 5, 15, 0.95);
+  border-top: 1px solid #2a2a4a;
+  z-index: 11;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#building-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#bp-icon {
+  font-size: 20px;
+}
+
+#bp-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #c0c0f0;
+  flex: 1;
+}
+
+#bp-close {
+  background: none;
+  border: none;
+  color: #7070a0;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+#bp-close:hover {
+  color: #c0c0e0;
+}
+
+#bp-stats {
+  font-size: 12px;
+  color: #9090b0;
+  line-height: 1.7;
+}
+
+#bp-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bp-btn {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 2px solid #3a3a6a;
+  border-radius: 6px;
+  background: #12122a;
+  color: #c0c0e0;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bp-btn:hover {
+  background: #1e1e3e;
+  border-color: #6060a0;
+}
+
+.bp-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.bp-btn.upgrade {
+  border-color: #40a060;
+  color: #80e0a0;
+}
+
+.bp-btn.demolish {
+  border-color: #a04040;
+  color: #e08080;
+}
+
+/* ── 줌 컨트롤 버튼 ── */
+#zoom-controls {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+}
+
+#zoom-controls button {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #3a3a6a;
+  border-radius: 8px;
+  background: rgba(18, 18, 42, 0.9);
+  color: #c0c0e0;
+  font-size: 22px;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#zoom-controls button:hover,
+#zoom-controls button:active {
+  background: #1e1e3e;
+  border-color: #6060a0;
+}

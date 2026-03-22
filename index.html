@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>XenoNest</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-container">
+
+    <!-- 게임 캔버스: JS가 크기를 동적으로 계산한다 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 상단 HUD -->
+    <div id="hud-top">
+      <div class="hud-item" id="hud-resource">
+        <span class="hud-label">자원</span>
+        <span class="hud-value" id="val-resource">200</span>
+      </div>
+      <div class="hud-item" id="hud-wave">
+        <span class="hud-label">위협</span>
+        <span class="hud-value" id="val-wave">-</span>
+      </div>
+      <div class="hud-item" id="hud-timer">
+        <span class="hud-label">남은시간</span>
+        <span class="hud-value" id="val-timer">-</span>
+      </div>
+      <div class="hud-item" id="hud-hp">
+        <span class="hud-label">둥지HP</span>
+        <span class="hud-value" id="val-hp">-</span>
+      </div>
+    </div>
+
+    <!-- 건물 정보/관리 패널 (build-panel 위에 위치) -->
+    <div id="building-panel" class="hidden">
+      <div id="building-panel-header">
+        <span id="bp-icon"></span>
+        <span id="bp-name"></span>
+        <button id="bp-close">✕</button>
+      </div>
+      <div id="bp-stats"></div>
+      <div id="bp-actions"></div>
+    </div>
+
+    <!-- 하단 건물 선택 패널 -->
+    <div id="build-panel">
+      <!-- 건물 데이터는 JS가 동적으로 버튼을 생성한다 -->
+    </div>
+
+    <!-- 줌 컨트롤 버튼 -->
+    <div id="zoom-controls">
+      <button id="zoom-in">+</button>
+      <button id="zoom-out">−</button>
+    </div>
+
+    <!-- 화면 중앙 상태 메시지 플래시 -->
+    <div id="status-msg"></div>
+
+    <!-- 게임 오버 / 시작 오버레이 -->
+    <div id="overlay">
+      <div id="overlay-title">XenoNest</div>
+      <div id="overlay-subtitle">핵심 둥지를 건설하고<br>인간 병사로부터 영토를 지켜라!</div>
+      <button class="overlay-btn" id="overlay-btn">게임 시작</button>
+    </div>
+
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
