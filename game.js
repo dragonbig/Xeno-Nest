@@ -735,6 +735,39 @@ function startUpgrade(building) {
 }
 
 
+// 자원 건물 일괄 진화: 선택한 건물의 레벨 기준으로 동일 레벨 건물 일괄 업그레이드
+function calcResourceBatchUpgrade(selectedBuilding) {
+  const targetLv = selectedBuilding.level;
+  const def = BUILDING_DEFS.RESOURCE;
+  const maxLv = 5;
+  if (targetLv >= maxLv) return { count: 0, totalCost: 0 };
+  const costPerUnit = def.upgradeCost[targetLv - 1];
+  if (costPerUnit === null) return { count: 0, totalCost: 0 };
+
+  // 동일 레벨, 건설 완료, 진화 중 아닌 자원 건물 수집
+  const targets = G.buildings.filter(b =>
+    b.type === 'RESOURCE' && b.built && !b.upgrading && b.level === targetLv
+  );
+  // 자원으로 업그레이드 가능한 최대 수
+  const affordable = Math.floor(G.resource / costPerUnit);
+  const count = Math.min(targets.length, affordable);
+  return { count, totalCost: count * costPerUnit, targets };
+}
+
+function execResourceBatchUpgrade(selectedBuilding) {
+  const info = calcResourceBatchUpgrade(selectedBuilding);
+  if (info.count === 0) return 0;
+  const def = BUILDING_DEFS.RESOURCE;
+  const costPerUnit = def.upgradeCost[selectedBuilding.level - 1];
+  let upgraded = 0;
+  for (let i = 0; i < info.count; i++) {
+    const b = info.targets[i];
+    if (G.resource < costPerUnit) break;
+    if (startUpgrade(b)) upgraded++;
+  }
+  return upgraded;
+}
+
 // ── 7. 적 생성 헬퍼 ──────────────────────────────────────────────────────────
 
 // WARRIOR/MAGE는 첫 등장 이후 단계가 오를수록 공격력 증가 (단계당 +15%)
@@ -3153,6 +3186,30 @@ function openBuildingRadialMenu(clientX, clientY, building) {
         G.selectedBuildingId = null;
         updateHUD();
         updateBuildPanel();
+      }
+    });
+  }
+
+  // 자원 건물 일괄 진화 액션
+  if (building.type === 'RESOURCE' && building.built && !atMax) {
+    const batchInfo = calcResourceBatchUpgrade(building);
+    const batchDisabled = batchInfo.count === 0;
+    actions.push({
+      icon: '⏫',
+      label: batchInfo.count > 0 ? `${batchInfo.count}개/${batchInfo.totalCost}` : '불가',
+      cls: 'action-upgrade',
+      insufficient: batchDisabled,
+      disabled: batchDisabled,
+      onClick: () => {
+        const result = execResourceBatchUpgrade(building);
+        if (result > 0) {
+          showStatus(`자원 건물 ${result}개 일괄 진화 완료`);
+          closeRadialMenu();
+          G.selectedBuildingId = null;
+          updateHUD();
+        } else {
+          showStatus('일괄 진화 불가: 자원 부족 또는 대상 없음');
+        }
       }
     });
   }
