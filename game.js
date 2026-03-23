@@ -1031,6 +1031,7 @@ function onTileClicked(col, row) {
     // radial menu가 열려 있으면 닫기 (메뉴 바깥 클릭)
     if (G._radialOpen) {
       closeRadialMenu();
+      G.selectedBuildingId = null;
       return;
     }
 
@@ -3037,6 +3038,7 @@ function openBuildingRadialMenu(clientX, clientY, building) {
   radialMenu.innerHTML = '';
   radialMenu.classList.remove('hidden');
   closeBuildingPanel();
+  G.selectedBuildingId = building.id; // 범위 원 표시용
 
   const def = BUILDING_DEFS[building.type];
   const maxLv = building.type === 'WALL' ? 10 : building.type === 'NEST' ? 3 : 5;
@@ -3092,6 +3094,7 @@ function openBuildingRadialMenu(clientX, clientY, building) {
         G.resource += refund;
         removeBuilding(building);
         closeRadialMenu();
+        G.selectedBuildingId = null;
         updateHUD();
         updateBuildPanel();
       }
