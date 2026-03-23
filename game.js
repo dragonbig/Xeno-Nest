@@ -236,6 +236,11 @@ const SPAWN_SCHEDULE = Object.freeze([
   { timeStart: 420, citizen:0, scout:14, fast:6, tanker:2, warrior:1, mage:1, interval:4.0 },
   { timeStart: 480, citizen:0, scout:15, fast:7, tanker:3, warrior:1, mage:1, interval:3.5 },
   { timeStart: 540, citizen:0, scout:15, fast:7, tanker:3, warrior:2, mage:2, interval:3.0 },
+  { timeStart: 600, citizen:0, scout:12, fast:8, tanker:4, warrior:2, mage:2, interval:3.0 },
+  { timeStart: 660, citizen:0, scout:10, fast:9, tanker:4, warrior:3, mage:3, interval:2.8 },
+  { timeStart: 720, citizen:0, scout:7,  fast:10, tanker:5, warrior:3, mage:3, interval:2.5 },
+  { timeStart: 780, citizen:0, scout:5,  fast:11, tanker:6, warrior:4, mage:4, interval:2.3 },
+  { timeStart: 840, citizen:0, scout:3,  fast:12, tanker:7, warrior:5, mage:5, interval:2.0 },
 ]);
 
 // 게임 전체 제한 시간
