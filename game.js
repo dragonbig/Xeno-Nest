@@ -125,7 +125,7 @@ const GLOBAL_UPGRADES = Object.freeze([
 // 가시 촉수 스탯 (레벨 1~5 배열)
 const THORN_STATS = Object.freeze({
   range:      [3.0, 3.2, 3.4, 3.6, 3.8],
-  damage:     [15,  20,  26,  32,  40 ],
+  damage:     [18,  26,  35,  45,  58 ],
   fireRate:   [2.0, 2.2, 2.4, 2.6, 3.0],
   projSpeed:  400,  // 2배 속도
   attackType: 'PHYSICAL',
@@ -135,7 +135,7 @@ const THORN_STATS = Object.freeze({
 // 산성 포자 스탯 (레벨 1~5 배열)
 const SPORE_STATS = Object.freeze({
   range:        [4.0, 4.3, 4.6, 5.0, 5.5],
-  damage:       [12,  16,  20,  25,  30 ],
+  damage:       [15,  22,  30,  40,  52 ],
   fireRate:     [0.6, 0.65, 0.7, 0.8, 0.9],
   projSpeed:    140,
   attackType:   'ACID',
@@ -147,7 +147,7 @@ const SPORE_STATS = Object.freeze({
 // 구조물 수리 스탯 (레벨 1~5 배열)
 const REPAIR_STATS = Object.freeze({
   range:      [2.0, 2.5, 3.0, 3.5, 4.0],
-  healPerSec: [5,   8,   12,  16,  22 ],
+  healPerSec: [8,   13,  19,  26,  35 ],
 });
 
 // 자원건물 스탯
