@@ -56,9 +56,9 @@ const BUILDING_DEFS = Object.freeze({
               upgradeTime: [5, 6, 7, 8, 9, 10, 12, 14, 16],
               upgradeCost: [30, 50, 80, 150, 200, 300, 500, 800, 1300, null],
               hpPerLevel: [200, 260, 340, 440, 570, 740, 960, 1250, 1625, 2100] },
-  THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '🌵', color: '#508030', hpMax: 120,  armorType: 'STRUCTURE',
+  THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '✴️', color: '#508030', hpMax: 120,  armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
-  SPORE:    { name: '산성 포자',  cost: 70,  buildTime: 4,  tile: TILE.SPORE,    icon: '🧪', color: '#806030', hpMax: 100,  armorType: 'STRUCTURE',
+  SPORE:    { name: '산성 포자',  cost: 70,  buildTime: 4,  tile: TILE.SPORE,    icon: '💦', color: '#806030', hpMax: 100,  armorType: 'STRUCTURE',
               upgradeTime: [10, 11, 12, 13, 14], upgradeCost: [150, 500, 1500, 3000, null] },
   REPAIR:   { name: '구조물 수리',cost: 60,  buildTime: 4,  tile: TILE.REPAIR_BLD,icon: '🔧', color: '#305080', hpMax: 80,   armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
@@ -576,7 +576,12 @@ function initGame() {
     _lastClientY:  0,
     prevTime:      null,
     // 카메라 초기 위치: 기지 중앙(col=15, row=7) 부근
-    camera: { x: (15 - 6) * TILE_SIZE, y: (7 - 4) * TILE_SIZE, zoom: 1.0 },
+    // 카메라 초기 위치: NEST_ZONE 중앙이 화면 중앙에 오도록
+    camera: {
+      x: (NEST_ZONE.colMin + 1) * TILE_SIZE - (COLS * TILE_SIZE) / 2,
+      y: (NEST_ZONE.rowMin + 1) * TILE_SIZE - (ROWS * TILE_SIZE) / 2,
+      zoom: 1.0
+    },
     drag:   { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0, moved: false },
   };
 }
