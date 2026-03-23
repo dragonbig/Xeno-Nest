@@ -237,13 +237,12 @@ html, body {
   opacity: 1;
 }
 
-/* ── 우하단 건설 트리거 바 ── */
+/* ── 중앙 하단 건설 트리거 바 ── */
 #build-trigger-bar {
   position: absolute;
   bottom: 12px;
-  right: 12px;
-  left: auto;
-  transform: none;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
 }
 
