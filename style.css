@@ -438,6 +438,40 @@ html, body {
   color: #e08080;
 }
 
+/* ── 일시정지 버튼 ── */
+#pause-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 64px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #3a3a6a;
+  background: rgba(18, 18, 42, 0.9);
+  color: #c0c0e0;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+  line-height: 1;
+}
+
+#pause-btn:hover,
+#pause-btn:active {
+  background: #1e1e3e;
+  border-color: #6060a0;
+}
+
+#pause-btn.paused {
+  border-color: #f0c040;
+  color: #f0c040;
+}
+
 /* ── 광고 버프 버튼 ── */
 #ad-buff-btn {
   position: absolute;
@@ -575,7 +609,8 @@ html, body {
     width: 40px;
     height: 40px;
   }
-  #ad-buff-btn {
+  #ad-buff-btn,
+  #pause-btn {
     width: 38px;
     height: 38px;
   }

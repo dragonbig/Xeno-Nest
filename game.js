@@ -566,6 +566,7 @@ function initGame() {
       RESOURCE_BOOST: 0,
       WALL_FORTIFY:   0,
     },
+    paused:        false,
     adBuff:        { active: false, timer: 0 },
     _radialOpen:   false,
     _radialCol:    0,
@@ -3217,6 +3218,23 @@ function gameLoop(timestamp) {
   }
   G.prevTime = timestamp;
 
+  if (G.paused) {
+    render();
+    // 일시정지 오버레이 텍스트
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f0c040';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('일시정지', canvas.width / 2, canvas.height / 2);
+    ctx.restore();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
   update(dt);
   render();
   updateHUD();
@@ -3234,6 +3252,17 @@ window.addEventListener('resize', () => {
   resizeCanvas();
   clampCamera();
   dirtyTerrain();
+});
+
+// 일시정지 버튼
+const pauseBtn = document.getElementById('pause-btn');
+pauseBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (G.state !== STATE.COUNTDOWN && G.state !== STATE.WAVE) return;
+  G.paused = !G.paused;
+  pauseBtn.classList.toggle('paused', G.paused);
+  pauseBtn.textContent = G.paused ? '▶' : '❚❚';
+  if (!G.paused) G.prevTime = null; // dt 폭발 방지
 });
 
 // 최초 초기화
