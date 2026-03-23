@@ -48,7 +48,7 @@ const TILE = Object.freeze({
 // upgradeTime/upgradeCost는 레벨 배열 (인덱스 = 현재 레벨-1)
 // upgradeCost 마지막 원소 null = 최대 레벨에서 업그레이드 불가
 const BUILDING_DEFS = Object.freeze({
-  NEST:     { name: '핵심 둥지',  cost: 100, buildTime: 5,  tile: TILE.NEST,     icon: '🟣', color: '#9040c0', hpMax: 500,  armorType: 'STRUCTURE',
+  NEST:     { name: '핵심 둥지',  cost: 100, buildTime: 1.7,  tile: TILE.NEST,     icon: '🟣', color: '#9040c0', hpMax: 500,  armorType: 'STRUCTURE',
               w: 2, h: 2,
               upgradeTime: [15, 20], upgradeCost: [1000, 5000, null],
               hpPerLevel: [500, 700, 950] },
@@ -265,7 +265,7 @@ const ENEMY_CAP = Object.freeze({
 });
 
 // 게임 타이밍
-const COUNTDOWN_DURATION = 30;  // 초
+const COUNTDOWN_DURATION = 20;  // 초
 // NEST_BUILD_TIME는 BUILDING_DEFS.NEST.buildTime으로 관리한다 (5초)
 const DT_MAX             = 0.1; // 초, 탭 전환 후 큰 dt 클램핑
 
