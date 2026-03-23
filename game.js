@@ -124,7 +124,7 @@ const GLOBAL_UPGRADES = Object.freeze([
 
 // 가시 촉수 스탯 (레벨 1~5 배열)
 const THORN_STATS = Object.freeze({
-  range:      [2.0, 2.2, 2.4, 2.6, 2.8],
+  range:      [3.0, 3.2, 3.4, 3.6, 3.8],
   damage:     [15,  20,  26,  32,  40 ],
   fireRate:   [2.0, 2.2, 2.4, 2.6, 3.0],
   projSpeed:  400,  // 2배 속도
@@ -239,7 +239,7 @@ const SPAWN_SCHEDULE = Object.freeze([
 ]);
 
 // 게임 전체 제한 시간
-const GAME_DURATION      = 600; // 초 (10분)
+const GAME_DURATION      = 900; // 초 (15분)
 
 // 성벽 1개당 최대 공격 용량 (SCOUT 크기 기준 5칸)
 // SCOUT(slotCost=1)→최대 5마리, FAST/TANKER(slotCost=2)→최대 2마리
@@ -2381,7 +2381,7 @@ function updateRepair(dt) {
     const nestLv = (G.nestBuilding && G.nestBuilding.built) ? G.nestBuilding.level : 1;
     const healAmt = (8 + srLv * 4) + (nestLv - 1) * 4;
     for (const b of G.buildings) {
-      if (b.built && !b.upgrading) {
+      if (b.built) {
         b.hp = Math.min(b.hpMax, b.hp + healAmt);
       }
     }
@@ -2400,7 +2400,7 @@ function updateRepairBuildings(dt) {
     const healAmt = REPAIR_STATS.healPerSec[lv] * dt;
     const bc = getBuildingCenter(b);
     for (const target of G.buildings) {
-      if (target === b || !target.built || target.upgrading) continue;
+      if (target === b || !target.built) continue;
       const tc = getBuildingCenter(target);
       const dx = tc.x - bc.x;
       const dy = tc.y - bc.y;
