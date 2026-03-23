@@ -2464,12 +2464,43 @@ function updateProjectiles(dt) {
         toRemove.push(p.id);
       }
     } else {
-      // 타겟이 이미 죽었으면 투사체 제거
-      toRemove.push(p.id);
+      // 타겟이 죽었으면 유도 해제, 직선으로 계속 날아감
+      p.homing = false;
+      // 경로 상 다른 적과 충돌 판정
+      for (const e of G.enemies) {
+        if (e.dead) continue;
+        const d = Math.hypot(p.x - e.x, p.y - e.y);
+        if (d < e.radius + 4) {
+          e.hp -= p.damage;
+          spawnFloatingText(e.x, e.y - e.radius, `-${p.damage}`, '#ffff60');
+          if (p.attackType === 'ACID') {
+            const sporeLv = G.globalUpgrades.SPORE_BOOST;
+            const splashPx = SPORE_STATS.splashRadius * TILE_SIZE;
+            e.slowedTimer = SPORE_STATS.slowDuration * (1 + sporeLv * 0.05);
+            e.slowAmount  = SPORE_STATS.slowAmount;
+            for (const other of G.enemies) {
+              if (other.dead || other.id === e.id) continue;
+              const sd = Math.hypot(p.x - other.x, p.y - other.y);
+              if (sd <= splashPx) {
+                const splashDmg = Math.round(p.damage * 0.5);
+                other.hp -= splashDmg;
+                spawnFloatingText(other.x, other.y - other.radius, `-${splashDmg}`, '#c0e030');
+                other.slowedTimer = SPORE_STATS.slowDuration * (1 + sporeLv * 0.05);
+                other.slowAmount  = SPORE_STATS.slowAmount;
+                if (other.hp <= 0) { other.dead = true; G.resource += other.reward; }
+              }
+            }
+          }
+          if (e.hp <= 0) { e.dead = true; G.resource += e.reward; }
+          toRemove.push(p.id);
+          break;
+        }
+      }
     }
 
-    // 월드 밖 투사체 제거 (zoom 독립적)
-    if (p.x < 0 || p.x > COLS * TILE_SIZE || p.y < 0 || p.y > ROWS * TILE_SIZE) {
+    // 월드 밖 투사체 제거 (zoom 독립적) — 여유 범위 포함
+    const margin = TILE_SIZE * 2;
+    if (p.x < -margin || p.x > COLS * TILE_SIZE + margin || p.y < -margin || p.y > ROWS * TILE_SIZE + margin) {
       toRemove.push(p.id);
     }
   }
