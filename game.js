@@ -770,19 +770,13 @@ function execResourceBatchUpgrade(selectedBuilding) {
 
 // ── 7. 적 생성 헬퍼 ──────────────────────────────────────────────────────────
 
-// WARRIOR/MAGE는 첫 등장 이후 단계가 오를수록 공격력 증가 (단계당 +15%)
-const SCALED_ENEMY_TYPES = { WARRIOR: 6, MAGE: 6 }; // 첫 등장 스케줄 인덱스
-function scaleAttackDmg(type, baseDmg) {
-  const firstIdx = SCALED_ENEMY_TYPES[type];
-  if (firstIdx === undefined) return baseDmg;
-  const stagesAbove = Math.max(0, G.scheduleIdx - firstIdx);
-  return Math.round(baseDmg * (1 + stagesAbove * 0.15));
-}
-
-// 위협 단계 10 이후 적 체력 단계당 +5% 증가
-function scaleHp(baseHp) {
+// 위협 단계 10 이후 모든 적 체력/공격력 단계당 +10% 증가
+function getEnemyScalePercent() {
   const stagesAbove = Math.max(0, G.scheduleIdx - 9); // 인덱스 9 = 10단계
-  return Math.round(baseHp * (1 + stagesAbove * 0.05));
+  return stagesAbove * 10; // 퍼센트
+}
+function scaleEnemyStat(base) {
+  return Math.round(base * (1 + getEnemyScalePercent() / 100));
 }
 
 function spawnEnemy(type, entranceIndex) {
@@ -823,12 +817,12 @@ function spawnEnemy(type, entranceIndex) {
     type,
     x:           spawnX,
     y:           spawnY,
-    hp:          scaleHp(def.hpMax),
-    hpMax:       scaleHp(def.hpMax),
+    hp:          scaleEnemyStat(def.hpMax),
+    hpMax:       scaleEnemyStat(def.hpMax),
     speed:       def.speed,
     damage:      def.damage,
     reward:      def.reward,
-    attackDmg:   scaleAttackDmg(type, def.attackDmg),
+    attackDmg:   scaleEnemyStat(def.attackDmg),
     attackRate:  def.attackRate,
     attackTimer: 0,
     targetBldId: null, // 현재 공격 중인 건물 id (직선 추적 시 갱신됨)
@@ -1285,6 +1279,18 @@ function updateHUD() {
     elHP.textContent = G.nestBuilding.hp + '/' + G.nestBuilding.hpMax;
   } else {
     elHP.textContent = '-';
+  }
+
+  // 적 강화 배율 표시
+  const scalePct = getEnemyScalePercent();
+  const scaleEl = document.getElementById('hud-enemy-scale');
+  const scaleValEl = document.getElementById('val-enemy-scale');
+  if (scalePct > 0) {
+    scaleEl.style.display = '';
+    scaleValEl.textContent = `+${scalePct}%`;
+    scaleValEl.style.color = scalePct >= 30 ? '#ff4040' : scalePct >= 20 ? '#ff8040' : '#f0c040';
+  } else {
+    scaleEl.style.display = 'none';
   }
 }
 
