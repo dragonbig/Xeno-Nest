@@ -2,7 +2,7 @@
 
 > **카테고리:** FEATURES
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23 (Phase 6: WALL_DEFENSE, 피해량 플로팅 텍스트, hitsSolidTile)
+> **최종 갱신:** 2026-03-23 (Phase 7: ARCHER 원거리 공격, 투사체 색상 분기, projSpeed 동적 참조)
 > **관련 기능:** 적 AI, 투사체 시스템, 충돌 처리, BFS 거리맵 길찾기
 
 ## 개요
@@ -53,7 +53,7 @@
    attackTimer -= dt
    attackTimer <= 0 이면:
      - 근접: target.hp -= dmg (WALL은 WALL_DEFENSE 감소 적용: `dmg = Math.round(attackDmg × (1 - defLv × 0.02))`, 최소 1)
-     - 원거리(MAGE): fireEnemyProjectile() 호출
+     - 원거리(MAGE, ARCHER): fireEnemyProjectile() 호출
 ```
 
 ### 공격 범위 계산
@@ -62,8 +62,8 @@
 // 근접
 attackRange = e.radius + TILE_SIZE * 0.55   // 약 34.4px 여유
 
-// 원거리 (MAGE)
-attackRange = e.radius + TILE_SIZE * e.rangedTiles  // 11 + 168 = 179px
+// 원거리 (MAGE: rangedTiles=3.5, ARCHER: rangedTiles=2.5)
+attackRange = e.radius + TILE_SIZE * e.rangedTiles  // MAGE: 11+168=179px, ARCHER: 10+120=130px
 ```
 
 ### 거리맵 경사 추적의 동작 원리
@@ -123,18 +123,26 @@ attackRange = e.radius + TILE_SIZE * e.rangedTiles  // 11 + 168 = 179px
 
 ---
 
-## MAGE 원거리 투사체 시스템
+## 적 원거리 투사체 시스템
 
-MAGE는 공격 범위에 진입하면 근접 공격 대신 `fireEnemyProjectile()`을 호출한다.
+MAGE와 ARCHER는 `ranged: true` 속성을 가진 원거리 유닛이다. 공격 범위에 진입하면 근접 공격 대신 `fireEnemyProjectile()`을 호출한다.
+
+> **Phase 7 변경:** MAGE 전용이었던 원거리 투사체 시스템이 ARCHER 추가로 일반화되었다. `fireEnemyProjectile()`이 `ENEMY_DEFS[enemy.type].projSpeed`를 동적으로 참조하도록 변경되어, 유닛별로 다른 투사체 속도를 가질 수 있다.
+
+| 원거리 유닛 | attackType | projSpeed | rangedTiles | 투사체 색상 |
+|------------|-----------|-----------|-------------|-----------|
+| MAGE | MAGICAL | 150 px/s | 3.5 타일 | 보라색 (`#c060ff`) |
+| ARCHER | PHYSICAL | 200 px/s | 2.5 타일 | 황갈색 (`#c0a040`) |
 
 ### fireEnemyProjectile(enemy, target)
 
 ```javascript
 // 적 위치 → 타겟 건물 방향으로 투사체 생성
+const spd = ENEMY_DEFS[enemy.type].projSpeed || 150; // px/s — 유닛별 동적 참조
 G.enemyProjectiles.push({
   id, x, y,
-  vx: (dx / dist) * 150,  // 속도 150 px/s (하드코딩)
-  vy: (dy / dist) * 150,
+  vx: (dx / dist) * spd,
+  vy: (dy / dist) * spd,
   damage: enemy.attackDmg,
   attackType: enemy.attackType,
   targetBldId: target.id,
@@ -162,9 +170,26 @@ G.enemyProjectiles.push({
   - 월드 밖 이탈 (x < 0, x > 1440, y < 0, y > 1152)
 ```
 
+### 투사체 색상 분기 (Phase 7 추가)
+
+`renderEnemyProjectiles()`에서 투사체의 `attackType`에 따라 색상을 분기한다.
+
+```javascript
+const isPhysical = p.attackType === 'PHYSICAL';
+const fillColor = isPhysical ? '#c0a040' : '#c060ff';   // 황갈색 vs 보라색
+const tailColor = isPhysical ? 'rgba(192, 160, 64, 0.4)' : 'rgba(192, 96, 255, 0.4)';
+```
+
+| attackType | 구슬 색상 | 꼬리 색상 | 사용 유닛 |
+|-----------|----------|----------|----------|
+| PHYSICAL | `#c0a040` (황갈색) | `rgba(192, 160, 64, 0.4)` | ARCHER |
+| MAGICAL | `#c060ff` (보라색) | `rgba(192, 96, 255, 0.4)` | MAGE |
+
+이 분기를 통해 플레이어가 원거리 투사체의 출처를 시각적으로 즉시 구분할 수 있다.
+
 ### G.projectiles vs G.enemyProjectiles 분리 이유
 
-타워(플레이어 측) 투사체와 MAGE(적 측) 투사체는 히트 대상이 완전히 다르다.
+타워(플레이어 측) 투사체와 적 측(MAGE, ARCHER) 투사체는 히트 대상이 완전히 다르다.
 - `G.projectiles`: 적(enemy) 객체를 `targetId`로 추적
 - `G.enemyProjectiles`: 건물(building) 객체를 `targetBldId`로 추적
 

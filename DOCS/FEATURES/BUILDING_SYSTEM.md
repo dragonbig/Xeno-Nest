@@ -2,7 +2,7 @@
 
 > **카테고리:** FEATURES
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23 (Phase 6: Radial Menu 건설 UI, 둥지 자동배치, 실시간 자원 갱신, 상승값 표시, 광고 버프, hitsSolidTile, BASE_ENTRANCE)
+> **최종 갱신:** 2026-03-23 (Phase 7: 건물 선택 Radial Menu, NEST 레벨별 비주얼, 모바일 Portrait 최적화, 버튼 위치 재배치)
 > **관련 기능:** 건물 배치, 업그레이드, 철거, 건물 정보 패널, 슬로우 디버프, 구조물 수리, 광고 버프
 
 ## 개요
@@ -182,6 +182,18 @@ Phase 4부터 모든 건물이 단일 상태 머신으로 통일되었다.
 | REPAIR | 십자(+) 형태 | 48x48 px | 청록색 `rgba(0,200,200,…)` |
 
 NEST는 `b.w * TILE_SIZE`, `b.h * TILE_SIZE`로 계산된 renderW(96px), renderH(96px) 크기로 렌더링된다. 1x1 건물은 TILE_SIZE(48px) 크기로 렌더링된다.
+
+### NEST 레벨별 비주얼 (Phase 7 추가)
+
+`drawBuildingShape()`에 `level` 파라미터가 추가되어, NEST의 시각적 형태가 레벨에 따라 3단계로 변화한다.
+
+| 레벨 | 외형 | 상세 |
+|------|------|------|
+| Lv.1 | 기본 불규칙 다각형 + 내부원 | 6꼭짓점 불규칙 다각형, `#c060ff` 내부원(반경 h×0.4) |
+| Lv.2 | 9꼭짓점 + 5촉수 + stroke + 밝은 내부원 | 9꼭짓점 다각형(높이 변동: `0.75 + 0.2 × sin`), `#d080ff` 외곽선(lineWidth 1.5), 5개 삼각형 촉수 돌기(h×0.85 → h×1.15), `#d080ff` 내부원 |
+| Lv.3 | 12꼭짓점 + 8촉수 + 이중원 + 글로우 | 12꼭짓점(높이 변동: `0.8 + 0.15 × sin`), `shadowBlur: 12 + shadowColor: #ff80ff` 글로우 효과, 8개 촉수 돌기, 이중원(외부원 `#d080ff` h×0.45 + 내부원 `#f0c0ff` h×0.25) |
+
+레벨이 올라갈수록 촉수 수와 꼭짓점이 증가하며, Lv.3에서는 `shadowBlur`로 외곽에 핑크빛 글로우가 추가되어 시각적으로 최종 진화 상태를 강조한다.
 
 ---
 
@@ -368,13 +380,66 @@ REPAIR 중심 픽셀 좌표 (cx, cy) 기준 반경 96 px 이내의 건물만 수
 
 ---
 
+## 건물 선택 Radial Menu (Phase 7 추가)
+
+건물을 클릭하면 기존의 정보 패널(`openBuildingPanel`)이 직접 열리는 대신, 원형 메뉴(`openBuildingRadialMenu`)가 먼저 표시된다. 사용자는 메뉴에서 원하는 액션(진화/철거/정보)을 선택한다.
+
+### 메뉴 구성
+
+| 건물 타입 | 표시되는 액션 | 개수 |
+|----------|-------------|------|
+| NEST | 진화(상향 화살표) + 정보(i) | 2개 |
+| 일반 건물 (WALL, THORN, SPORE, REPAIR, RESOURCE) | 진화 + 철거(휴지통) + 정보 | 3개 |
+
+### 중앙 정보
+
+메뉴 중심부에는 건물명, HP(`현재HP/최대HP`), 레벨(`Lv.N`)이 표시된다.
+
+### 호출 흐름
+
+```
+onTileClicked()
+  → 건물 타일 클릭 감지
+  → openBuildingRadialMenu(clientX, clientY, building) 호출
+  → 기존 건물 패널이 열려있으면 closeBuildingPanel()
+  → 원형 메뉴 DOM 오버레이 표시
+
+사용자 액션 선택:
+  진화(⬆) 클릭 → startUpgrade(building) → 성공 시 openBuildingPanel(building)
+  철거(🗑) 클릭 → 환불 자원 지급 → removeBuilding() → closeRadialMenu()
+  정보(ℹ) 클릭 → closeRadialMenu() → openBuildingPanel(building)
+```
+
+### 진화 버튼 상태
+
+| 건물 상태 | 진화 버튼 표시 | disabled 여부 |
+|----------|-------------|-------------|
+| 최대 레벨 도달 | "MAX" | disabled |
+| 업그레이드 진행 중 | 남은 시간(초) | disabled |
+| 건설 중 (built: false) | 비용 표시 | disabled |
+| 자원 부족 | 비용 표시 + insufficient 클래스 | disabled |
+| 업그레이드 가능 | 비용 표시 | 활성 |
+
+### 철거 환불
+
+| 건물 상태 | 환불 비율 |
+|----------|----------|
+| 건설 중 (`built: false`) | 100% |
+| 건설 완료 (`built: true`) | 50% |
+
+### 배치 좌표
+
+메뉴는 클릭 위치(clientX, clientY)를 기준으로 `game-container`의 상대 좌표에 반경 55px의 원형으로 배치된다. 12시 방향부터 시계방향으로 아이콘이 배치된다.
+
+---
+
 ## 건물 정보 패널 (openBuildingPanel / closeBuildingPanel)
 
 DOM 기반 패널로 구현된다. `building-panel` div가 `hidden` 클래스 토글로 표시/숨김된다.
 
 ### 패널 열기 (openBuildingPanel)
 
-트리거: 배치 모드가 아닌 상태에서 건물 타일 클릭.
+트리거: 건물 선택 Radial Menu의 "정보(ℹ)" 아이콘 클릭, 또는 진화 성공 시 자동 호출.
 
 ```
 1. G.selectedBuildingId = building.id

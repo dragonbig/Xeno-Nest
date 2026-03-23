@@ -216,8 +216,15 @@ const ENEMY_DEFS = Object.freeze({
     name:'마법사 모험가', hpMax:200, speed:65, damage:60, reward:50,
     attackDmg:30, attackRate:1.0, radius:11, slotCost:2,
     attackType:'MAGICAL', armorType:'HERO',
-    ranged:true, rangedTiles:3.5,
+    ranged:true, rangedTiles:3.5, projSpeed:150,
     color:'#8040c0', outlineColor:'#401060',
+  },
+  ARCHER: {
+    name:'궁수', hpMax:50, speed:80, damage:20, reward:20,
+    attackDmg:12, attackRate:1.2, radius:10, slotCost:1,
+    attackType:'PHYSICAL', armorType:'PHYSICAL',
+    ranged:true, rangedTiles:2.5, projSpeed:200,
+    color:'#60a040', outlineColor:'#305020',
   },
 });
 
@@ -227,20 +234,20 @@ const ENEMY_DEFS = Object.freeze({
 // interval: 다음 스폰 배치까지 대기 시간(초)
 // 마지막 구간(540s~)이 게임 종료(600s)까지 유지된다.
 const SPAWN_SCHEDULE = Object.freeze([
-  { timeStart:   0, citizen:2, scout:0,  fast:0, tanker:0, warrior:0, mage:0, interval:7.0 },
-  { timeStart: 120, citizen:0, scout:4,  fast:0, tanker:0, warrior:0, mage:0, interval:6.0 },
-  { timeStart: 180, citizen:0, scout:6,  fast:1, tanker:0, warrior:0, mage:0, interval:5.5 },
-  { timeStart: 240, citizen:0, scout:8,  fast:2, tanker:0, warrior:0, mage:0, interval:5.0 },
-  { timeStart: 300, citizen:0, scout:10, fast:3, tanker:1, warrior:0, mage:0, interval:4.5 },
-  { timeStart: 360, citizen:0, scout:12, fast:5, tanker:2, warrior:0, mage:0, interval:4.0 },
-  { timeStart: 420, citizen:0, scout:14, fast:6, tanker:2, warrior:1, mage:1, interval:4.0 },
-  { timeStart: 480, citizen:0, scout:15, fast:7, tanker:3, warrior:1, mage:1, interval:3.5 },
-  { timeStart: 540, citizen:0, scout:15, fast:7, tanker:3, warrior:2, mage:2, interval:3.0 },
-  { timeStart: 600, citizen:0, scout:12, fast:8, tanker:4, warrior:2, mage:2, interval:3.0 },
-  { timeStart: 660, citizen:0, scout:10, fast:9, tanker:4, warrior:3, mage:3, interval:2.8 },
-  { timeStart: 720, citizen:0, scout:7,  fast:10, tanker:5, warrior:3, mage:3, interval:2.5 },
-  { timeStart: 780, citizen:0, scout:5,  fast:11, tanker:6, warrior:4, mage:4, interval:2.3 },
-  { timeStart: 840, citizen:0, scout:3,  fast:12, tanker:7, warrior:5, mage:5, interval:2.0 },
+  { timeStart:   0, citizen:2, scout:0,  fast:0, tanker:0, warrior:0, mage:0, archer:0, interval:7.0 },
+  { timeStart: 120, citizen:0, scout:4,  fast:0, tanker:0, warrior:0, mage:0, archer:0, interval:6.0 },
+  { timeStart: 180, citizen:0, scout:6,  fast:1, tanker:0, warrior:0, mage:0, archer:0, interval:5.5 },
+  { timeStart: 240, citizen:0, scout:8,  fast:2, tanker:0, warrior:0, mage:0, archer:0, interval:5.0 },
+  { timeStart: 300, citizen:0, scout:10, fast:3, tanker:1, warrior:0, mage:0, archer:0, interval:4.5 },
+  { timeStart: 360, citizen:0, scout:12, fast:5, tanker:2, warrior:0, mage:0, archer:0, interval:4.0 },
+  { timeStart: 420, citizen:0, scout:14, fast:6, tanker:2, warrior:1, mage:1, archer:1, interval:4.0 },
+  { timeStart: 480, citizen:0, scout:15, fast:7, tanker:3, warrior:1, mage:1, archer:2, interval:3.5 },
+  { timeStart: 540, citizen:0, scout:15, fast:7, tanker:3, warrior:2, mage:2, archer:2, interval:3.0 },
+  { timeStart: 600, citizen:0, scout:12, fast:8, tanker:4, warrior:2, mage:2, archer:3, interval:3.0 },
+  { timeStart: 660, citizen:0, scout:10, fast:9, tanker:4, warrior:3, mage:3, archer:3, interval:2.8 },
+  { timeStart: 720, citizen:0, scout:7,  fast:10, tanker:5, warrior:3, mage:3, archer:4, interval:2.5 },
+  { timeStart: 780, citizen:0, scout:5,  fast:11, tanker:6, warrior:4, mage:4, archer:5, interval:2.3 },
+  { timeStart: 840, citizen:0, scout:3,  fast:12, tanker:7, warrior:5, mage:5, archer:6, interval:2.0 },
 ]);
 
 // 게임 전체 제한 시간
@@ -254,7 +261,7 @@ const WALL_MAX_CAPACITY = 5;
 // 등급별 동시 생존 최대 개체 수
 // 한도 초과분은 pendingSpawn에 보류되어 다음 배치 타이밍에 재시도한다.
 const ENEMY_CAP = Object.freeze({
-  CITIZEN:80, SCOUT:100, FAST:50, TANKER:30, WARRIOR:10, MAGE:10
+  CITIZEN:80, SCOUT:100, FAST:50, TANKER:30, WARRIOR:10, MAGE:10, ARCHER:40
 });
 
 // 게임 타이밍
@@ -535,7 +542,7 @@ function initGame() {
     gameTimer:     0,    // WAVE 상태 진입 후 경과 시간(초) — 스폰 스케줄 기준
     spawnTimer:    0,    // 다음 스폰 배치까지 남은 시간(초)
     scheduleIdx:   0,    // 현재 적용 중인 SPAWN_SCHEDULE 인덱스
-    pendingSpawn:  { CITIZEN: 0, SCOUT: 0, FAST: 0, TANKER: 0, WARRIOR: 0, MAGE: 0 }, // 캡 초과로 보류된 스폰 수
+    pendingSpawn:  { CITIZEN: 0, SCOUT: 0, FAST: 0, TANKER: 0, WARRIOR: 0, MAGE: 0, ARCHER: 0 }, // 캡 초과로 보류된 스폰 수
     enemyProjectiles: [], // 적(원거리)이 발사한 투사체
     countdown:     COUNTDOWN_DURATION,
     nestTile:     null, // { col, row } — 핵심 둥지 위치
@@ -1038,11 +1045,11 @@ function onTileClicked(col, row) {
         && G.distanceMap && G.distanceMap[row][col] < Infinity;
       const isEntrance = currentTile === TILE.ENTRANCE;
 
-      // 건물이 있는 타일 클릭 시 → 건설 모드 해제 + 정보 패널 열기
+      // 건물이 있는 타일 클릭 시 → 건물 radial menu 열기
       const existingBuilding = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
       if (existingBuilding) {
         deactivateBuildMode();
-        openBuildingPanel(existingBuilding);
+        openBuildingRadialMenu(G._lastClientX, G._lastClientY, existingBuilding);
         return;
       }
 
@@ -1074,10 +1081,10 @@ function onTileClicked(col, row) {
       return;
     }
 
-    // 건설 모드가 아닐 때: 건물 클릭이면 정보 패널 열기, 빈 타일이면 패널 닫기 (다중 타일 대응)
+    // 건설 모드가 아닐 때: 건물 클릭이면 radial menu 열기, 빈 타일이면 패널 닫기 (다중 타일 대응)
     const clicked = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
     if (clicked) {
-      openBuildingPanel(clicked);
+      openBuildingRadialMenu(G._lastClientX, G._lastClientY, clicked);
     } else {
       closeBuildingPanel();
     }
@@ -1409,7 +1416,7 @@ function renderBuildings() {
     if (!b.built) {
       // 건설 중: 반투명 + 진행 바 (녹색)
       ctx.globalAlpha = 0.5;
-      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH);
+      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH, b.level);
       ctx.globalAlpha = 1.0;
 
       const progress = 1 - b.buildTimer / def.buildTime;
@@ -1422,7 +1429,7 @@ function renderBuildings() {
       ctx.fillStyle = '#60e060'; // 건설: 녹색
       ctx.fillRect(bx, by, barW * progress, barH);
     } else {
-      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH);
+      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH, b.level);
 
       // HP 바 (건물 최상단, NEST만 항상 표시. 나머지는 피해 입었을 때만)
       if (b.type === 'NEST' || b.hp < b.hpMax) {
@@ -1446,8 +1453,8 @@ function renderBuildings() {
         ctx.fillRect(bx, by, barW * progress, barH);
       }
 
-      // 레벨 표시: THORN/SPORE/REPAIR/WALL/RESOURCE
-      if (!b.upgrading && ['THORN', 'SPORE', 'REPAIR', 'WALL', 'RESOURCE'].includes(b.type)) {
+      // 레벨 표시: NEST/THORN/SPORE/REPAIR/WALL/RESOURCE
+      if (!b.upgrading && ['NEST', 'THORN', 'SPORE', 'REPAIR', 'WALL', 'RESOURCE'].includes(b.type)) {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'right';
@@ -1488,10 +1495,11 @@ function renderBuildings() {
   }
 }
 
-function drawBuildingShape(ctx, type, x, y, color, renderW, renderH) {
+function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level) {
   // renderW/renderH: 건물 전체 렌더 크기 (NEST 2×2는 TILE_SIZE*2)
   renderW = renderW || TILE_SIZE;
   renderH = renderH || TILE_SIZE;
+  level = level || 1;
   const cx = x + renderW / 2;
   const cy = y + renderH / 2;
   const h  = Math.min(renderW, renderH) / 2 - 4;
@@ -1500,22 +1508,106 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH) {
 
   switch (type) {
     case 'NEST': {
-      // 핵심 둥지: 불규칙 다각형 (유기적 느낌) — 2×2 크기
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - h);
-      ctx.lineTo(cx + h * 0.7, cy - h * 0.3);
-      ctx.lineTo(cx + h * 0.9, cy + h * 0.6);
-      ctx.lineTo(cx, cy + h);
-      ctx.lineTo(cx - h * 0.9, cy + h * 0.6);
-      ctx.lineTo(cx - h * 0.7, cy - h * 0.3);
-      ctx.closePath();
-      ctx.fill();
-
-      // 내부 원 강조
-      ctx.fillStyle = '#c060ff';
-      ctx.beginPath();
-      ctx.arc(cx, cy, h * 0.4, 0, Math.PI * 2);
-      ctx.fill();
+      if (level <= 1) {
+        // Lv.1: 기존 형태 — 불규칙 다각형 + 내부원
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - h);
+        ctx.lineTo(cx + h * 0.7, cy - h * 0.3);
+        ctx.lineTo(cx + h * 0.9, cy + h * 0.6);
+        ctx.lineTo(cx, cy + h);
+        ctx.lineTo(cx - h * 0.9, cy + h * 0.6);
+        ctx.lineTo(cx - h * 0.7, cy - h * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#c060ff';
+        ctx.beginPath();
+        ctx.arc(cx, cy, h * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (level === 2) {
+        // Lv.2: 꼭짓점 8~10개 + 촉수 4~6개 + 밝은 내부원 + 외곽선
+        const verts = 9;
+        ctx.beginPath();
+        for (let i = 0; i < verts; i++) {
+          const ang = (i / verts) * Math.PI * 2 - Math.PI / 2;
+          const r = h * (0.75 + 0.2 * Math.sin(i * 2.3));
+          const px = cx + Math.cos(ang) * r;
+          const py = cy + Math.sin(ang) * r;
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#d080ff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // 촉수 돌기 (5개)
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2 - Math.PI / 2;
+          const bx = cx + Math.cos(ang) * h * 0.85;
+          const by = cy + Math.sin(ang) * h * 0.85;
+          const tx = cx + Math.cos(ang) * h * 1.15;
+          const ty = cy + Math.sin(ang) * h * 1.15;
+          const perpX = -Math.sin(ang) * h * 0.12;
+          const perpY =  Math.cos(ang) * h * 0.12;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(bx + perpX, by + perpY);
+          ctx.lineTo(tx, ty);
+          ctx.lineTo(bx - perpX, by - perpY);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // 내부원 (밝은 보라)
+        ctx.fillStyle = '#d080ff';
+        ctx.beginPath();
+        ctx.arc(cx, cy, h * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Lv.3: 꼭짓점 12개 + 촉수 8개 + 이중원 + 글로우
+        ctx.save();
+        ctx.shadowColor = '#ff80ff';
+        ctx.shadowBlur = 12;
+        const verts = 12;
+        ctx.beginPath();
+        for (let i = 0; i < verts; i++) {
+          const ang = (i / verts) * Math.PI * 2 - Math.PI / 2;
+          const r = h * (0.8 + 0.15 * Math.sin(i * 1.7));
+          const px = cx + Math.cos(ang) * r;
+          const py = cy + Math.sin(ang) * r;
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#ff80ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore(); // shadowBlur 리셋
+        // 촉수 돌기 (8개)
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2 - Math.PI / 2;
+          const bx = cx + Math.cos(ang) * h * 0.85;
+          const by = cy + Math.sin(ang) * h * 0.85;
+          const tx = cx + Math.cos(ang) * h * 1.2;
+          const ty = cy + Math.sin(ang) * h * 1.2;
+          const perpX = -Math.sin(ang) * h * 0.1;
+          const perpY =  Math.cos(ang) * h * 0.1;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(bx + perpX, by + perpY);
+          ctx.lineTo(tx, ty);
+          ctx.lineTo(bx - perpX, by - perpY);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // 이중원: 외부 반투명 + 내부 밝은 핑크
+        ctx.fillStyle = 'rgba(255, 128, 255, 0.25)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, h * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ff80ff';
+        ctx.beginPath();
+        ctx.arc(cx, cy, h * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
       break;
     }
     case 'WALL': {
@@ -1637,6 +1729,24 @@ function renderEnemies() {
       ctx.arc(e.x, e.y, e.radius + 3, 0, Math.PI * 2);
       ctx.stroke();
     }
+    // ARCHER: 활 모양 (반원 호 + 시위 직선, 녹색)
+    if (e.type === 'ARCHER') {
+      ctx.strokeStyle = '#a0e060';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.radius + 3, -Math.PI * 0.6, Math.PI * 0.6);
+      ctx.stroke();
+      // 시위 (호의 양 끝을 직선 연결)
+      const r = e.radius + 3;
+      const x1 = e.x + Math.cos(-Math.PI * 0.6) * r;
+      const y1 = e.y + Math.sin(-Math.PI * 0.6) * r;
+      const x2 = e.x + Math.cos(Math.PI * 0.6) * r;
+      const y2 = e.y + Math.sin(Math.PI * 0.6) * r;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
 
     // HP 바
     const barW = e.radius * 2 + 4;
@@ -1693,18 +1803,22 @@ function renderProjectiles() {
   }
 }
 
-/** 적 원거리 투사체 렌더링 (마법사 전용 — 보라색 구슬) */
+/** 적 원거리 투사체 렌더링 — PHYSICAL(궁수)는 황갈색, MAGICAL(마법사)은 보라색 */
 function renderEnemyProjectiles() {
   for (const p of G.enemyProjectiles) {
+    const isPhysical = p.attackType === 'PHYSICAL';
+    const fillColor = isPhysical ? '#c0a040' : '#c060ff';
+    const tailColor = isPhysical ? 'rgba(192, 160, 64, 0.4)' : 'rgba(192, 96, 255, 0.4)';
+
     ctx.beginPath();
     ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#c060ff';
+    ctx.fillStyle = fillColor;
     ctx.fill();
     // 꼬리 효과
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
     ctx.lineTo(p.x - p.vx * 0.06, p.y - p.vy * 0.06);
-    ctx.strokeStyle = 'rgba(192, 96, 255, 0.4)';
+    ctx.strokeStyle = tailColor;
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -1871,6 +1985,7 @@ function updateWave(dt) {
     let threatMsg = `위협 증가! 정찰병 ${s.scout} / 돌격병 ${s.fast} / 중장갑 ${s.tanker}`;
     if (s.warrior > 0) threatMsg += ` / 전사 ${s.warrior}`;
     if (s.mage    > 0) threatMsg += ` / 마법사 ${s.mage}`;
+    if (s.archer  > 0) threatMsg += ` / 궁수 ${s.archer}`;
     showStatus(threatMsg, 3000);
   }
 
@@ -1910,6 +2025,7 @@ function spawnBatch(sched) {
   trySpawn('TANKER',  sched.tanker);
   trySpawn('WARRIOR', sched.warrior);
   trySpawn('MAGE',    sched.mage);
+  trySpawn('ARCHER',  sched.archer);
 }
 
 /** 10분 생존 성공 처리 */
@@ -2258,7 +2374,7 @@ function fireEnemyProjectile(enemy, target) {
   const dy   = tp.y - enemy.y;
   const dist = Math.hypot(dx, dy);
   if (dist < 1) return;
-  const spd = 150; // px/s
+  const spd = ENEMY_DEFS[enemy.type].projSpeed || 150; // px/s
   G.enemyProjectiles.push({
     id:          G.nextId++,
     x:           enemy.x,
@@ -2910,6 +3026,140 @@ function closeRadialMenu() {
   radialMenu.classList.add('hidden');
   radialMenu.innerHTML = '';
   G._radialOpen = false;
+}
+
+/**
+ * 건물 클릭 시 radial menu를 표시한다.
+ * NEST: 진화 + 정보 (2개), 일반: 진화 + 철거 + 정보 (3개)
+ */
+function openBuildingRadialMenu(clientX, clientY, building) {
+  radialMenu.innerHTML = '';
+  radialMenu.classList.remove('hidden');
+  closeBuildingPanel();
+
+  const def = BUILDING_DEFS[building.type];
+  const maxLv = building.type === 'WALL' ? 10 : building.type === 'NEST' ? 3 : 5;
+  const isNest = building.type === 'NEST';
+
+  // 액션 목록 구성
+  const actions = [];
+
+  // 진화 액션
+  const atMax = building.level >= maxLv;
+  const upgCost = atMax ? null : def.upgradeCost[building.level - 1];
+  let upgradeLabel = '';
+  let upgradeDisabled = false;
+  if (atMax) {
+    upgradeLabel = 'MAX';
+    upgradeDisabled = true;
+  } else if (building.upgrading) {
+    upgradeLabel = `${Math.ceil(building.upgradeTimer)}s`;
+    upgradeDisabled = true;
+  } else if (!building.built) {
+    upgradeLabel = `${upgCost}`;
+    upgradeDisabled = true;
+  } else {
+    upgradeLabel = `${upgCost}`;
+    if (G.resource < upgCost) upgradeDisabled = true;
+  }
+  actions.push({
+    icon: '⬆',
+    label: upgradeLabel,
+    cls: 'action-upgrade',
+    insufficient: !atMax && !building.upgrading && building.built && upgCost !== null && G.resource < upgCost,
+    disabled: upgradeDisabled,
+    onClick: () => {
+      if (startUpgrade(building)) {
+        openBuildingPanel(building);
+      } else {
+        showStatus('업그레이드 불가: 자원 부족 또는 조건 미충족');
+      }
+    }
+  });
+
+  // 철거 액션 (NEST 제외)
+  if (!isNest) {
+    const refundRate = building.built ? 0.5 : 1.0;
+    const refund = Math.floor(def.cost * refundRate);
+    actions.push({
+      icon: '🗑',
+      label: `${refund}`,
+      cls: 'action-demolish',
+      insufficient: false,
+      disabled: false,
+      onClick: () => {
+        G.resource += refund;
+        removeBuilding(building);
+        closeRadialMenu();
+        updateHUD();
+        updateBuildPanel();
+      }
+    });
+  }
+
+  // 정보 액션
+  actions.push({
+    icon: 'ℹ',
+    label: '정보',
+    cls: 'action-info',
+    insufficient: false,
+    disabled: false,
+    onClick: () => {
+      closeRadialMenu();
+      openBuildingPanel(building);
+    }
+  });
+
+  // 배치 좌표 계산
+  const container = document.getElementById('game-container');
+  const containerRect = container.getBoundingClientRect();
+  const menuCX = clientX - containerRect.left;
+  const menuCY = clientY - containerRect.top;
+
+  const radius = 55;
+  const startAngle = -Math.PI / 2;
+  const step = (2 * Math.PI) / actions.length;
+
+  for (let i = 0; i < actions.length; i++) {
+    const act = actions[i];
+    const angle = startAngle + step * i;
+    const ix = menuCX + Math.cos(angle) * radius;
+    const iy = menuCY + Math.sin(angle) * radius;
+
+    const el = document.createElement('div');
+    el.className = `radial-item ${act.cls}`;
+    el.innerHTML = `<span class="ri-icon">${act.icon}</span><span class="ri-cost">${act.label}</span>`;
+    el.style.left = ix + 'px';
+    el.style.top  = iy + 'px';
+
+    if (act.insufficient) el.classList.add('insufficient');
+    if (act.disabled) el.style.pointerEvents = 'none';
+    // MAX 레벨에 insufficient 스타일 적용
+    if (act.cls === 'action-upgrade' && atMax) el.classList.add('insufficient');
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      act.onClick();
+    });
+
+    radialMenu.appendChild(el);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => el.classList.add('show'));
+    });
+  }
+
+  // 중앙 라벨: 건물 이름 + HP + 레벨
+  const centerEl = document.createElement('div');
+  centerEl.className = 'radial-center-label';
+  centerEl.style.left = menuCX + 'px';
+  centerEl.style.top  = menuCY + 'px';
+  centerEl.innerHTML = `${def.name}<br>HP ${building.hp}/${building.hpMax}<br>Lv.${building.level}`;
+  radialMenu.appendChild(centerEl);
+
+  G._radialOpen = true;
+  G._radialCol  = building.col;
+  G._radialRow  = building.row;
 }
 
 /** PLACING 상태에서 건설 버튼 숨기기 */

@@ -63,8 +63,8 @@ G.projectiles.push({ ..., owner: 'MAGE' })   // 적
 ## 결과
 
 - `G.enemyProjectiles`는 `initGame()`에서 `[]`로 초기화된다
-- `fireEnemyProjectile(enemy, target)`: 투사체 생성, 속도 150 px/s
+- `fireEnemyProjectile(enemy, target)`: 투사체 생성, 속도는 `ENEMY_DEFS[enemy.type].projSpeed || 150` px/s (Phase 7: 동적 참조로 변경)
 - `updateEnemyProjectiles(dt)`: 이동 + 히트 판정 + 제거
-- `renderEnemyProjectiles()`: 보라색 구슬 + 꼬리 렌더링
+- `renderEnemyProjectiles()`: attackType에 따라 색상 분기 — PHYSICAL→황갈색(`#c0a040`), MAGICAL→보라색(`#c060ff`) (Phase 7 변경)
 - WAVE 루프에서 `updateEnemyProjectiles(dt)`는 `updateProjectiles(dt)` 다음에 호출된다
-- 향후 원거리 적이 추가되면 `G.enemyProjectiles`에 `fireEnemyProjectile` 패턴을 재사용한다
+- Phase 7에서 ARCHER가 추가되어 `G.enemyProjectiles`에 `fireEnemyProjectile` 패턴이 재사용되었다. 설계 시 예측한 확장성이 검증됨

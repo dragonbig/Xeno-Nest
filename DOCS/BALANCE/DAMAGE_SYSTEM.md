@@ -2,7 +2,7 @@
 
 > **카테고리:** BALANCE
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23
+> **최종 갱신:** 2026-03-23 (Phase 7: ARCHER 추가 — PHYSICAL 공격/PHYSICAL 방어)
 > **관련 기능:** 타워 공격, 적 공격, 피해 계산
 
 ## 개요
@@ -16,7 +16,7 @@
 | 값 | 사용 유닛 |
 |----|-----------|
 | `UNARMORED` | CITIZEN |
-| `PHYSICAL` | SCOUT, FAST, TANKER |
+| `PHYSICAL` | SCOUT, FAST, TANKER, ARCHER |
 | `MAGICAL` | (현재 미사용, 확장 예약) |
 | `HERO` | WARRIOR, MAGE |
 | `STRUCTURE` | NEST, WALL, THORN, SPORE, REPAIR, RESOURCE (모든 건물) |
@@ -27,7 +27,7 @@
 
 | 값 | 사용 공격 | 추가된 시점 |
 |----|-----------|-------------|
-| `PHYSICAL` | THORN 공격, CITIZEN/SCOUT/FAST/TANKER/WARRIOR 근접 공격 | Phase 1 |
+| `PHYSICAL` | THORN 공격, CITIZEN/SCOUT/FAST/TANKER/WARRIOR 근접 공격, ARCHER 원거리 투사체 | Phase 1 (ARCHER: Phase 7) |
 | `MAGICAL` | MAGE 투사체 공격 | Phase 2 |
 | `HERO` | WARRIOR 근접 공격 | Phase 2 |
 | `ACID` | SPORE 투사체 공격 | Phase 3 |

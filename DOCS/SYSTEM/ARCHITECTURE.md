@@ -2,7 +2,7 @@
 
 > **카테고리:** SYSTEM
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23 (Phase 6: Radial Menu UI, 피해량 플로팅 텍스트, 광고 버프)
+> **최종 갱신:** 2026-03-23 (Phase 7: 건물 Radial Menu, 버튼 위치 재배치, 모바일 Portrait 최적화, ARCHER)
 > **관련 기능:** 게임 루프, 상태 관리, 렌더링 파이프라인
 
 ## 개요
@@ -63,12 +63,25 @@ index.html
     │   └── zoom-in / zoom-out 버튼
     │
     └── UI 패널 (DOM)
-        ├── build-trigger-bar  (중앙 하단 건설 버튼 1개)
+        ├── build-trigger-bar  (우하단 건설 버튼 1개, right:12px bottom:12px)
         ├── radial-menu        (원형 건물 선택 메뉴, DOM 오버레이)
-        ├── building-panel     (건물 정보/진화/철거)
+        ├── building-radial    (건물 클릭 시 원형 액션 메뉴 — 진화/철거/정보)
+        ├── building-panel     (건물 정보/진화/철거 — 정보 아이콘으로 접근)
         ├── hud-top            (자원 / 위협 단계 / 남은 시간 / 둥지 HP)
-        ├── ad-buff-btn        (좌측 상단 광고 버프 버튼)
+        ├── ad-buff-btn        (좌하단 광고 버프 버튼, left:12px bottom:12px)
+        ├── zoom-controls      (우상단 줌 버튼, right:12px top:50px)
         └── overlay            (시작 화면 / 게임 오버)
+
+> **Phase 7 변경 — UI 버튼 위치 재배치:**
+> - 건설 버튼: 중앙 하단 → 우하단 (`right:12px, bottom:12px`)
+> - 광고 버프: 좌상단 → 좌하단 (`left:12px, bottom:12px`)
+> - 줌 컨트롤: 우측 중앙 → 우상단 (`right:12px, top:50px`)
+>
+> **Phase 7 변경 — 건물 클릭 시 Radial Menu:**
+> 건물 클릭 시 정보 패널이 직접 열리지 않고, `openBuildingRadialMenu()`로 원형 액션 메뉴가 먼저 표시된다. NEST는 진화+정보(2개), 일반 건물은 진화+철거+정보(3개).
+>
+> **Phase 7 변경 — 모바일 세로(Portrait) 최적화:**
+> `@media (orientation: portrait)` 미디어 쿼리를 통해 세로 화면에서 HUD 패딩/폰트 축소, building-panel 높이 제한(40vh + overflow-y:auto), 버튼 크기 축소(줌 40px, 광고 38px, 건설 min-height 40px)가 적용된다.
 ```
 
 ---
@@ -84,7 +97,7 @@ IDLE
                                            └─(건설 완료, 5초)─→ COUNTDOWN
                                                                     └─(30초 경과)─→ WAVE
                                                                                       ├─(NEST HP 0)─→ GAME_OVER
-                                                                                      └─(600초 생존)─→ GAME_OVER(Victory)
+                                                                                      └─(900초 생존)─→ GAME_OVER(Victory)
 ```
 
 | 상태 | 설명 | update() 동작 |

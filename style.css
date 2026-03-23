@@ -237,12 +237,13 @@ html, body {
   opacity: 1;
 }
 
-/* ── 하단 중앙 건설 트리거 바 ── */
+/* ── 우하단 건설 트리거 바 ── */
 #build-trigger-bar {
   position: absolute;
   bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 12px;
+  left: auto;
+  transform: none;
   z-index: 10;
 }
 
@@ -440,7 +441,8 @@ html, body {
 /* ── 광고 버프 버튼 ── */
 #ad-buff-btn {
   position: absolute;
-  top: 50px;
+  bottom: 12px;
+  top: auto;
   left: 12px;
   width: 44px;
   height: 44px;
@@ -481,8 +483,8 @@ html, body {
 #zoom-controls {
   position: absolute;
   right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 50px;
+  transform: none;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -509,4 +511,72 @@ html, body {
 #zoom-controls button:active {
   background: #1e1e3e;
   border-color: #6060a0;
+}
+
+/* ── Radial Menu 액션별 보더 색상 ── */
+#radial-menu .radial-item.action-upgrade {
+  border-color: #40a060;
+}
+#radial-menu .radial-item.action-upgrade:hover {
+  border-color: #60e080;
+}
+
+#radial-menu .radial-item.action-demolish {
+  border-color: #a04040;
+}
+#radial-menu .radial-item.action-demolish:hover {
+  border-color: #e06060;
+}
+
+#radial-menu .radial-item.action-info {
+  border-color: #4060a0;
+}
+#radial-menu .radial-item.action-info:hover {
+  border-color: #6090e0;
+}
+
+/* ── Radial Menu 중앙 라벨 ── */
+#radial-menu .radial-center-label {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-size: 10px;
+  color: #c0c0e0;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* ── 모바일 세로(Portrait) 최적화 ── */
+@media (orientation: portrait) {
+  #hud-top {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  .hud-label {
+    font-size: 9px;
+  }
+  .hud-value {
+    font-size: 12px;
+  }
+  #building-panel {
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+  .bp-btn {
+    min-height: 30px;
+    font-size: 11px;
+  }
+  #build-trigger-btn {
+    min-height: 40px;
+    font-size: 12px;
+  }
+  #zoom-controls button {
+    width: 40px;
+    height: 40px;
+  }
+  #ad-buff-btn {
+    width: 38px;
+    height: 38px;
+  }
 }
