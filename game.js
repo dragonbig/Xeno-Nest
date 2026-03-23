@@ -779,6 +779,12 @@ function scaleAttackDmg(type, baseDmg) {
   return Math.round(baseDmg * (1 + stagesAbove * 0.15));
 }
 
+// 위협 단계 10 이후 적 체력 단계당 +5% 증가
+function scaleHp(baseHp) {
+  const stagesAbove = Math.max(0, G.scheduleIdx - 9); // 인덱스 9 = 10단계
+  return Math.round(baseHp * (1 + stagesAbove * 0.05));
+}
+
 function spawnEnemy(type, entranceIndex) {
   const def    = ENEMY_DEFS[type];
   const idx    = entranceIndex % ENTRANCES.length;
@@ -817,8 +823,8 @@ function spawnEnemy(type, entranceIndex) {
     type,
     x:           spawnX,
     y:           spawnY,
-    hp:          def.hpMax,
-    hpMax:       def.hpMax,
+    hp:          scaleHp(def.hpMax),
+    hpMax:       scaleHp(def.hpMax),
     speed:       def.speed,
     damage:      def.damage,
     reward:      def.reward,
