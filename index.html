@@ -43,10 +43,21 @@
       <div id="bp-actions"></div>
     </div>
 
-    <!-- 하단 건물 선택 패널 -->
-    <div id="build-panel">
-      <!-- 건물 데이터는 JS가 동적으로 버튼을 생성한다 -->
+    <!-- 하단 건물 선택 패널 (기존 호환용 — 숨김) -->
+    <div id="build-panel" class="hidden">
     </div>
+
+    <!-- 하단 중앙 건설 트리거 바 -->
+    <div id="build-trigger-bar">
+      <button id="build-trigger-btn">건설</button>
+    </div>
+
+    <!-- 원형 말풍선 건설 메뉴 (DOM 오버레이) -->
+    <div id="radial-menu" class="hidden">
+    </div>
+
+    <!-- 광고 버프 버튼 -->
+    <button id="ad-buff-btn" title="광고 시청으로 자원 2배 버프">AD</button>
 
     <!-- 줌 컨트롤 버튼 -->
     <div id="zoom-controls">

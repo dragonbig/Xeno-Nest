@@ -237,6 +237,100 @@ html, body {
   opacity: 1;
 }
 
+/* ── 하단 중앙 건설 트리거 바 ── */
+#build-trigger-bar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+#build-trigger-btn {
+  min-width: 80px;
+  min-height: 48px;
+  padding: 8px 20px;
+  border: 2px solid #6060c0;
+  border-radius: 24px;
+  background: rgba(18, 18, 42, 0.95);
+  color: #c0c0f0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#build-trigger-btn:hover,
+#build-trigger-btn:active {
+  background: #28285a;
+  border-color: #9090e0;
+  color: #ffffff;
+}
+
+#build-trigger-btn.active {
+  border-color: #80c0ff;
+  background: #1a2040;
+  box-shadow: 0 0 10px rgba(128, 192, 255, 0.4);
+}
+
+/* ── 원형 말풍선 건설 메뉴 (DOM 오버레이) ── */
+#radial-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 12;
+  pointer-events: none;
+}
+
+#radial-menu .radial-item {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid #3a3a6a;
+  background: rgba(12, 12, 30, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 0.15s, transform 0.15s;
+  transform: translate(-50%, -50%) scale(0);
+  gap: 1px;
+}
+
+#radial-menu .radial-item.show {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+#radial-menu .radial-item:hover {
+  border-color: #80c0ff;
+  background: rgba(26, 32, 64, 0.95);
+}
+
+#radial-menu .radial-item.insufficient {
+  opacity: 0.35;
+}
+
+#radial-menu .radial-item .ri-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+#radial-menu .radial-item .ri-cost {
+  font-size: 9px;
+  color: #80d080;
+  line-height: 1;
+}
+
+#radial-menu .radial-item.insufficient .ri-cost {
+  color: #e06060;
+}
+
 /* ── 반응형: 아주 좁은 화면 ── */
 @media (max-width: 400px) {
   .build-btn {
@@ -252,7 +346,7 @@ html, body {
 /* ── 건물 정보/관리 패널 ── */
 #building-panel {
   position: absolute;
-  bottom: 72px; /* build-panel 위 */
+  bottom: 0; /* 하단에 배치 (build-panel 숨김 상태) */
   left: 0;
   right: 0;
   background: rgba(5, 5, 15, 0.95);
@@ -341,6 +435,46 @@ html, body {
 .bp-btn.demolish {
   border-color: #a04040;
   color: #e08080;
+}
+
+/* ── 광고 버프 버튼 ── */
+#ad-buff-btn {
+  position: absolute;
+  top: 50px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #3a3a6a;
+  background: rgba(18, 18, 42, 0.9);
+  color: #c0c0e0;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+  line-height: 1;
+}
+
+#ad-buff-btn:hover,
+#ad-buff-btn:active {
+  background: #1e1e3e;
+  border-color: #6060a0;
+}
+
+#ad-buff-btn.active {
+  border-color: #ffd700;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  color: #ffd700;
+}
+
+#ad-buff-btn.cooldown {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ── 줌 컨트롤 버튼 ── */

@@ -2,7 +2,7 @@
 
 > **카테고리:** FEATURES
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23 (BFS 거리맵 전환)
+> **최종 갱신:** 2026-03-23 (Phase 6: WALL_DEFENSE, 피해량 플로팅 텍스트, hitsSolidTile)
 > **관련 기능:** 적 AI, 투사체 시스템, 충돌 처리, BFS 거리맵 길찾기
 
 ## 개요
@@ -52,7 +52,7 @@
 8. 공격
    attackTimer -= dt
    attackTimer <= 0 이면:
-     - 근접: target.hp -= attackDmg (NEST는 NEST_SHIELD 감소 적용)
+     - 근접: target.hp -= dmg (WALL은 WALL_DEFENSE 감소 적용: `dmg = Math.round(attackDmg × (1 - defLv × 0.02))`, 최소 1)
      - 원거리(MAGE): fireEnemyProjectile() 호출
 ```
 
@@ -200,14 +200,14 @@ A, B 모두 이동 중         → 50/50 분할(0.5, 0.5)
 공격 중 판별: `targetBldId`가 존재하고, 타겟까지의 거리가 공격 범위 이내이며, `attackTimer`가 간격의 10% 초과인 경우.
 
 밀어낸 후:
-- `hitsBlockedTile(x, y, radius)`로 BLOCKED 타일 진입 감지 시 push를 롤백
+- `hitsSolidTile(x, y, radius)`로 BLOCKED 또는 건물 타일 진입 감지 시 push를 롤백 (Phase 6에서 `hitsBlockedTile` → `hitsSolidTile`로 변경되어 건물 타일 넘어감도 방지)
 - 월드 경계 클램핑:
 ```
 x: [radius, 1440 - radius]
 y: [radius, 1152 - radius]
 ```
 
-> `hitsBlockedTile`은 중심 + 상하좌우 4방향 + 대각선 4방향 = 9지점을 검사하는 공용 함수이다. `pursueTarget`의 이동(`moveToward`)과 이 충돌 해소 양쪽에서 동일한 함수를 사용하여 BLOCKED 통과 방지의 일관성을 보장한다. 상세는 `DOCS/SYSTEM/GAME_CONSTANTS.md`의 "9지점 BLOCKED 충돌 검사" 섹션을 참조한다.
+> 이동(`moveToward`)에서는 `hitsBlockedTile`(BLOCKED 타일만 검사)을, 충돌 해소(`resolveCapsuleCollisions`)에서는 `hitsSolidTile`(BLOCKED + 건물 타일 검사)을 사용한다. Phase 6에서 분리된 이유: 적이 건물 옆까지 이동하여 공격해야 하므로 이동 시에는 건물 타일을 통과 허용하지만, 분리 push 시에는 건물 타일 위로 밀려나면 안 되기 때문이다. 상세는 `DOCS/SYSTEM/GAME_CONSTANTS.md`의 "9지점 충돌 검사" 섹션을 참조한다.
 
 ---
 

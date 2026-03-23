@@ -153,7 +153,7 @@ const REPAIR_STATS = Object.freeze({
 // 자원건물 스탯
 const RESOURCE_STATS = Object.freeze({
   interval:   5,    // 초마다 생산
-  amount:     7,    // 기본 생산량 (기존 15에서 50% 감소)
+  amount:     14,   // 기본 생산량
 });
 
 // ── 속성 시스템 ──────────────────────────────────────────────────────────────
@@ -258,10 +258,10 @@ const COUNTDOWN_DURATION = 30;  // 초
 const DT_MAX             = 0.1; // 초, 탭 전환 후 큰 dt 클램핑
 
 // 핵심 둥지 배치 가능 영역 — 기지 내부 상단 (2×2가 들어가도록 여유 확보)
-const NEST_ZONE = Object.freeze({ colMin: 12, colMax: 16, rowMin: 3, rowMax: 5 });
+const NEST_ZONE = Object.freeze({ colMin: 14, colMax: 15, rowMin: 3, rowMax: 4 });
 
 // NEST 레벨별 최대 건물 배치 수 (NEST 제외)
-const NEST_BUILD_CAP = Object.freeze([10, 20, 50]); // Lv.1=10, Lv.2=20, Lv.3=50
+const NEST_BUILD_CAP = Object.freeze([5, 10, 25]); // Lv.1=5, Lv.2=10, Lv.3=25
 
 // NEST 자원 생산
 const NEST_RESOURCE_INTERVAL = 8;  // 초마다 생산
@@ -554,7 +554,13 @@ function initGame() {
       RESOURCE_BOOST: 0,
       WALL_FORTIFY:   0,
     },
-    prevTime:     null,
+    adBuff:        { active: false, timer: 0 },
+    _radialOpen:   false,
+    _radialCol:    0,
+    _radialRow:    0,
+    _lastClientX:  0,
+    _lastClientY:  0,
+    prevTime:      null,
     // 카메라 초기 위치: 기지 중앙(col=15, row=7) 부근
     camera: { x: (15 - 6) * TILE_SIZE, y: (7 - 4) * TILE_SIZE, zoom: 1.0 },
     drag:   { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0, moved: false },
@@ -816,7 +822,7 @@ function clampCamera() {
  * 상단 HUD (40px) + 하단 패널 (72px) 높이를 제외한다.
  */
 const HUD_TOP_H    = 40;
-const BUILD_PANEL_H = 72;
+const BUILD_PANEL_H = 0; // build-panel 숨김 상태이므로 높이 0
 
 function resizeCanvas() {
   const availW = window.innerWidth;
@@ -870,6 +876,10 @@ function handleTileClick(clientX, clientY) {
   const tile = pixelToTile(pos.x, pos.y);
 
   if (tile.col < 0 || tile.col >= COLS || tile.row < 0 || tile.row >= ROWS) return;
+
+  // radial menu용 화면 좌표 저장
+  G._lastClientX = clientX;
+  G._lastClientY = clientY;
 
   onTileClicked(tile.col, tile.row);
 }
@@ -968,18 +978,23 @@ function onTileClicked(col, row) {
   const currentTile = G.grid[row][col];
   const sel = G.selectedBuild;
 
-  // PLACING: 핵심 둥지 배치 대기 중
+  // PLACING: 핵심 둥지 배치 대기 중 — 보라색 타일 아무 곳이나 터치 시 좌상단(14,3)에 자동 배치
   if (G.state === STATE.PLACING) {
     if (sel !== 'NEST') return;
-    if (!isInNestZone(col, row)) {
-      showStatus('핵심 둥지는 상단 중앙에만 배치 가능합니다.');
+    // 보라색 영역(NEST_ZONE) 안이면 자동으로 좌상단 고정 좌표에 배치
+    if (!(col >= NEST_ZONE.colMin && col <= NEST_ZONE.colMax
+       && row >= NEST_ZONE.rowMin && row <= NEST_ZONE.rowMax)) {
+      showStatus('보라색 타일을 터치하여 둥지를 배치하세요');
       return;
     }
+    // 고정 배치 좌표: NEST_ZONE 좌상단
+    const placeCol = NEST_ZONE.colMin;
+    const placeRow = NEST_ZONE.rowMin;
     // NEST 2×2: 4타일 모두 EMPTY인지 확인
     const nw = BUILDING_DEFS.NEST.w || 1, nh = BUILDING_DEFS.NEST.h || 1;
     for (let dr = 0; dr < nh; dr++) {
       for (let dc = 0; dc < nw; dc++) {
-        if (row + dr >= ROWS || col + dc >= COLS || G.grid[row + dr][col + dc] !== TILE.EMPTY) {
+        if (placeRow + dr >= ROWS || placeCol + dc >= COLS || G.grid[placeRow + dr][placeCol + dc] !== TILE.EMPTY) {
           showStatus('빈 공간에만 배치할 수 있습니다.');
           return;
         }
@@ -990,7 +1005,7 @@ function onTileClicked(col, row) {
       return;
     }
     G.resource -= BUILDING_DEFS.NEST.cost;
-    createBuilding('NEST', col, row);
+    createBuilding('NEST', placeCol, placeRow);
     G.state = STATE.PREP;
     setSelectedBuild(null);
     updateBuildPanel();
@@ -1000,59 +1015,61 @@ function onTileClicked(col, row) {
 
   // PREP / COUNTDOWN / WAVE 상태
   if (G.state === STATE.PREP || G.state === STATE.COUNTDOWN || G.state === STATE.WAVE) {
-    // 배치 모드 중이면 건물 배치 처리
-    if (sel && sel !== 'NEST') {
+    // radial menu가 열려 있으면 닫기 (메뉴 바깥 클릭)
+    if (G._radialOpen) {
+      closeRadialMenu();
+      return;
+    }
+
+    // 건설 모드 활성 상태에서 빈 타일 클릭 → radial menu 표시
+    if (buildModeActive) {
       // NEST 건설 전에는 다른 건물 배치 불가
       if (!G.nestBuilding || !G.nestBuilding.built) {
         showStatus('먼저 핵심 둥지를 건설하세요.');
         return;
       }
-      // 외벽 안에서만 건설 가능 (입구에는 WALL만 허용)
-      // 외벽 내부 판정: 기지 외벽 행 범위(row 1~13) 내이고 좌우벽 사이
+      // 외벽 안에서만 건설 가능
       const isInsideBase = row >= 1 && row <= 13
         && G.distanceMap && G.distanceMap[row][col] < Infinity;
       const isEntrance = currentTile === TILE.ENTRANCE;
+
+      // 건물이 있는 타일 클릭 시 → 건설 모드 해제 + 정보 패널 열기
+      const existingBuilding = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
+      if (existingBuilding) {
+        deactivateBuildMode();
+        openBuildingPanel(existingBuilding);
+        return;
+      }
+
       if (!isInsideBase && !isEntrance) {
         showStatus('외벽 안에서만 건설할 수 있습니다.');
         return;
       }
-      const canPlace = currentTile === TILE.EMPTY || (isEntrance && sel === 'WALL');
-      if (!canPlace) {
-        // 해당 위치에 건물이 있으면 배치 취소 후 패널 오픈 (다중 타일 건물 대응)
-        const existingBuilding = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
-        if (existingBuilding) {
-          setSelectedBuild(null);
-          openBuildingPanel(existingBuilding);
+
+      // ENTRANCE 타일은 WALL만 가능 → WALL 직접 건설 시도
+      if (isEntrance) {
+        if (G.resource < BUILDING_DEFS.WALL.cost) {
+          showStatus('자원이 부족합니다!');
           return;
         }
-        if (currentTile === TILE.ENTRANCE) {
-          showStatus('입구에는 방어벽만 배치할 수 있습니다.');
-        } else {
-          showStatus('빈 공간에만 배치할 수 있습니다.');
-        }
+        G.resource -= BUILDING_DEFS.WALL.cost;
+        createBuilding('WALL', col, row);
+        updateHUD();
         return;
       }
-      // NEST 레벨별 자원 건물 개수 제한 체크
-      if (sel === 'RESOURCE' && G.nestBuilding) {
-        const nestLv = G.nestBuilding.level || 1;
-        const maxRes = NEST_BUILD_CAP[nestLv - 1] || 10;
-        const currentRes = G.buildings.filter(b => b.type === 'RESOURCE').length;
-        if (currentRes >= maxRes) {
-          showStatus(`자원 건물 최대 ${maxRes}개 (둥지 Lv.${nestLv})`);
-          return;
-        }
-      }
-      if (G.resource < BUILDING_DEFS[sel].cost) {
-        showStatus('자원이 부족합니다!');
+
+      if (currentTile !== TILE.EMPTY) {
+        showStatus('빈 공간에만 배치할 수 있습니다.');
         return;
       }
-      G.resource -= BUILDING_DEFS[sel].cost;
-      createBuilding(sel, col, row);
-      updateBuildPanel();
+
+      // 빈 타일 → radial menu 열기 (화면 좌표 필요)
+      // G._lastClientX/Y는 handleTileClick에서 저장
+      openRadialMenu(G._lastClientX, G._lastClientY, col, row);
       return;
     }
 
-    // 배치 모드가 아닐 때: 건물 클릭이면 정보 패널 열기, 빈 타일이면 패널 닫기 (다중 타일 대응)
+    // 건설 모드가 아닐 때: 건물 클릭이면 정보 패널 열기, 빈 타일이면 패널 닫기 (다중 타일 대응)
     const clicked = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
     if (clicked) {
       openBuildingPanel(clicked);
@@ -1232,10 +1249,17 @@ function startNewGame() {
   // 게임 재시작 시 건물 패널 닫기 (DOM 상태 초기화)
   buildingPanel.classList.add('hidden');
   bpHpEl = null;
+  // 건설 모드 초기화
+  buildModeActive = false;
+  buildTriggerBtn.classList.remove('active');
+  closeRadialMenu();
+  // 광고 버프 초기화
+  adBuffBtn.classList.remove('active');
+  adBuffBtn.textContent = 'AD';
   G.state = STATE.PLACING;
   setSelectedBuild('NEST');
   hideOverlay();
-  showStatus('핵심 둥지를 상단 중앙에 배치하세요.');
+  showStatus('보라색 타일을 터치하여 둥지를 배치하세요');
   updateHUD();
 
   if (!wasRunning) {
@@ -1348,13 +1372,15 @@ function renderTerrain() {
       }
 
       // 핵심 둥지 배치 가능 영역 하이라이트 (PLACING 상태에서만)
-      if (G.state === STATE.PLACING && t === TILE.EMPTY && isInNestZone(c, r)) {
+      if (G.state === STATE.PLACING && t === TILE.EMPTY
+          && c >= NEST_ZONE.colMin && c <= NEST_ZONE.colMax
+          && r >= NEST_ZONE.rowMin && r <= NEST_ZONE.rowMax) {
         tc.fillStyle = 'rgba(128, 50, 200, 0.18)';
         tc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
       }
 
-      // 그리드 선: 건물 배치 모드일 때만 표시
-      if (G.selectedBuild !== null) {
+      // 그리드 선: 건물 배치 모드(또는 건설 모드) 활성 시 표시
+      if (G.selectedBuild !== null || buildModeActive) {
         tc.strokeStyle = '#2a2a4a';
         tc.lineWidth = 0.5;
         tc.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
@@ -1737,6 +1763,7 @@ function update(dt) {
     G.countdown -= dt;
     // 카운트다운 중에도 자원건물은 생산한다 (준비 시간 활용)
     updateResourceBuildings(dt);
+    updateAdBuff(dt);
     if (G.countdown <= 0) {
       G.countdown = 0;
       startWave();
@@ -1754,6 +1781,7 @@ function update(dt) {
     updateRepair(dt);
     updateRepairBuildings(dt);
     updateFloatingTexts(dt);
+    updateAdBuff(dt);
     // checkWaveEnd 제거: 시간 기반 시스템에서 종료는 updateWave 내 triggerVictory가 처리한다
   }
 }
@@ -2321,7 +2349,8 @@ function updateResourceBuildings(dt) {
       if (G.resourceTimers[b.id] <= 0) {
         const rbLv       = G.globalUpgrades.RESOURCE_BOOST;
         const baseAmount = Math.round(RESOURCE_STATS.amount * (1 + (b.level - 1) * 0.3));
-        const amount     = Math.round(baseAmount * (1 + rbLv * 0.03));
+        let   amount     = Math.round(baseAmount * (1 + rbLv * 0.03));
+        if (G.adBuff.active) amount *= 2;
         G.resource += amount;
         G.resourceTimers[b.id] = RESOURCE_STATS.interval;
       }
@@ -2330,7 +2359,8 @@ function updateResourceBuildings(dt) {
     if (b.type === 'NEST' && b.built && !b.upgrading) {
       G.resourceTimers[b.id] = (G.resourceTimers[b.id] || NEST_RESOURCE_INTERVAL) - dt;
       if (G.resourceTimers[b.id] <= 0) {
-        const nestAmt = NEST_RESOURCE_AMOUNT[b.level - 1] || NEST_RESOURCE_AMOUNT[0];
+        let nestAmt = NEST_RESOURCE_AMOUNT[b.level - 1] || NEST_RESOURCE_AMOUNT[0];
+        if (G.adBuff.active) nestAmt *= 2;
         G.resource += nestAmt;
         G.resourceTimers[b.id] = NEST_RESOURCE_INTERVAL;
       }
@@ -2463,6 +2493,10 @@ bpClose.addEventListener('click', () => closeBuildingPanel());
 function openBuildingPanel(building) {
   G.selectedBuildingId = building.id;
   G.selectedBuild = null; // 배치 모드 비활성화
+  // 건설 모드 비활성화
+  buildModeActive = false;
+  buildTriggerBtn.classList.remove('active');
+  closeRadialMenu();
   updateBuildPanel();
 
   const def = BUILDING_DEFS[building.type];
@@ -2489,22 +2523,40 @@ function openBuildingPanel(building) {
     statusStr = `<span style="color:#9090b0">완료</span>`;
   }
 
-  // 유형별 스펙
+  // 유형별 스펙 — 기본값 + 보너스값 형태로 표시
   let specStr = '';
   if (building.type === 'THORN') {
     const lv = (building.level || 1) - 1;
-    specStr = `공격력: ${THORN_STATS.damage[lv]} | 사거리: ${THORN_STATS.range[lv]}타일 | 속도: ${THORN_STATS.fireRate[lv]}/s`;
+    const thornBoostLv = G.globalUpgrades.THORN_BOOST;
+    const baseDmg = THORN_STATS.damage[lv];
+    const bonusDmg = Math.round(baseDmg * thornBoostLv * 0.03);
+    const dmgStr = bonusDmg > 0 ? `${baseDmg}+${bonusDmg}` : `${baseDmg}`;
+    const baseRate = THORN_STATS.fireRate[lv];
+    const bonusRate = +(baseRate * thornBoostLv * 0.02).toFixed(2);
+    const rateStr = bonusRate > 0 ? `${baseRate}+${bonusRate}` : `${baseRate}`;
+    specStr = `공격력: ${dmgStr} | 사거리: ${THORN_STATS.range[lv]}타일 | 속도: ${rateStr}/s`;
   } else if (building.type === 'SPORE') {
     const lv = (building.level || 1) - 1;
-    specStr = `공격력: ${SPORE_STATS.damage[lv]} | 사거리: ${SPORE_STATS.range[lv]}타일 | 슬로우: 30%/3s`;
+    const sporeBoostLv = G.globalUpgrades.SPORE_BOOST;
+    const baseDmg = SPORE_STATS.damage[lv];
+    const bonusDmg = Math.round(baseDmg * sporeBoostLv * 0.03);
+    const dmgStr = bonusDmg > 0 ? `${baseDmg}+${bonusDmg}` : `${baseDmg}`;
+    const baseSlowDur = SPORE_STATS.slowDuration;
+    const bonusSlowDur = +(baseSlowDur * sporeBoostLv * 0.05).toFixed(1);
+    const slowStr = bonusSlowDur > 0 ? `30%/${baseSlowDur}+${bonusSlowDur}s` : `30%/${baseSlowDur}s`;
+    specStr = `공격력: ${dmgStr} | 사거리: ${SPORE_STATS.range[lv]}타일 | 슬로우: ${slowStr}`;
   } else if (building.type === 'REPAIR') {
     const lv = (building.level || 1) - 1;
-    specStr = `범위: ${REPAIR_STATS.range[lv]}타일 | 수리: ${REPAIR_STATS.healPerSec[lv]}HP/s`;
+    const baseHeal = REPAIR_STATS.healPerSec[lv];
+    specStr = `범위: ${REPAIR_STATS.range[lv]}타일 | 수리: ${baseHeal}HP/s`;
   } else if (building.type === 'WALL') {
     specStr = `Lv.${building.level} | HP: ${building.hpMax} | 최대 공격자: ${WALL_MAX_CAPACITY}슬롯`;
   } else if (building.type === 'RESOURCE') {
-    const amt = Math.round(RESOURCE_STATS.amount * (1 + (building.level - 1) * 0.3));
-    specStr = `Lv.${building.level} | 생산량: ${amt} | 생산 간격: ${RESOURCE_STATS.interval}s`;
+    const rbLv = G.globalUpgrades.RESOURCE_BOOST;
+    const baseAmt = Math.round(RESOURCE_STATS.amount * (1 + (building.level - 1) * 0.3));
+    const bonusAmt = Math.round(baseAmt * rbLv * 0.03);
+    const amtStr = bonusAmt > 0 ? `${baseAmt}+${bonusAmt}` : `${baseAmt}`;
+    specStr = `Lv.${building.level} | 생산량: ${amtStr} | 생산 간격: ${RESOURCE_STATS.interval}s`;
   } else if (building.type === 'NEST') {
     specStr = `거점 건물 — 파괴 시 게임 오버`;
   }
@@ -2539,6 +2591,7 @@ function openBuildingPanel(building) {
       const cost = def.upgradeCost[building.level - 1];
       const time = def.upgradeTime[building.level - 1];
       nestUpgBtn.textContent = `Lv.${building.level + 1}로 진화 (${cost}자원 / ${time}s)`;
+      nestUpgBtn.dataset.cost = cost;
       if (G.resource < cost) nestUpgBtn.classList.add('disabled');
       nestUpgBtn.addEventListener('click', () => {
         if (startUpgrade(building)) {
@@ -2575,6 +2628,7 @@ function openBuildingPanel(building) {
         const canAfford = G.resource >= cost;
         btn.textContent = `${upg.icon} ${upg.name} Lv.${curLv}→${curLv + 1} (${cost}자원)`;
         btn.title = `현재: ${upg.effectDesc(curLv)}\n다음: ${upg.effectDesc(curLv + 1)}`;
+        btn.dataset.cost = cost;
         if (!canAfford) btn.classList.add('disabled');
         btn.addEventListener('click', () => {
           if (G.globalUpgrades[upg.id] >= upg.maxLv) return;
@@ -2617,6 +2671,7 @@ function openBuildingPanel(building) {
         const canAfford = G.resource >= cost;
         btn.textContent = `${upg.icon} ${upg.name} Lv.${curLv}→${curLv+1} (${cost})`;
         btn.title = `현재: ${upg.effectDesc(curLv)}\n다음: ${upg.effectDesc(curLv+1)}`;
+        btn.dataset.cost = cost;
         if (!canAfford) btn.classList.add('disabled');
         btn.addEventListener('click', () => {
           if (G.globalUpgrades[upg.id] >= upg.maxLv) return;
@@ -2653,6 +2708,7 @@ function openBuildingPanel(building) {
         const cost = def.upgradeCost[building.level - 1];
         const time = def.upgradeTime[building.level - 1];
         upgBtn.textContent = `Lv.${building.level + 1}로 진화 (${cost}자원 / ${time}s)`;
+        upgBtn.dataset.cost = cost;
         if (G.resource < cost) upgBtn.classList.add('disabled');
         upgBtn.addEventListener('click', () => {
           if (startUpgrade(building)) {
@@ -2696,16 +2752,201 @@ function closeBuildingPanel() {
 }
 
 /**
- * 매 프레임 HP만 갱신 (DOM 재생성 없이 textContent만 교체).
+ * 매 프레임 HP 갱신 + 버튼 disabled 상태 실시간 토글.
  * openBuildingPanel에서 생성한 #bp-hp-val element를 직접 참조한다.
+ * data-cost 속성이 있는 버튼은 G.resource와 비교하여 disabled를 토글한다.
  */
 function tickBuildingPanelHP() {
   if (!G.selectedBuildingId || !bpHpEl) return;
   const b = G.buildings.find(b => b.id === G.selectedBuildingId);
   if (!b) return;
   bpHpEl.textContent = b.hp;
+
+  // data-cost가 있는 버튼의 disabled 클래스를 실시간 토글
+  const costBtns = bpActions.querySelectorAll('.bp-btn[data-cost]');
+  for (const btn of costBtns) {
+    const cost = parseInt(btn.dataset.cost, 10);
+    const shouldDisable = G.resource < cost;
+    if (shouldDisable && !btn.classList.contains('disabled')) {
+      btn.classList.add('disabled');
+    } else if (!shouldDisable && btn.classList.contains('disabled')) {
+      btn.classList.remove('disabled');
+    }
+  }
 }
 
+
+// ── 건설 트리거 바 + 원형 메뉴 시스템 ─────────────────────────────────────────
+
+// 건물 그룹 정의 (NEST는 제외 — 기능 3에서 별도 처리)
+const BUILD_GROUPS = Object.freeze([
+  [
+    { key: 'WALL',     label: '성벽' },
+    { key: 'THORN',    label: '가시촉수' },
+    { key: 'SPORE',    label: '산성포자' },
+    { key: 'REPAIR',   label: '수리' },
+    { key: 'RESOURCE', label: '자원' },
+  ],
+]);
+
+const buildTriggerBar = document.getElementById('build-trigger-bar');
+const buildTriggerBtn = document.getElementById('build-trigger-btn');
+const radialMenu      = document.getElementById('radial-menu');
+
+// 건설 모드 활성화 상태
+let buildModeActive = false;
+
+buildTriggerBtn.addEventListener('click', () => {
+  if (G.state !== STATE.PREP && G.state !== STATE.COUNTDOWN && G.state !== STATE.WAVE) return;
+  if (!G.nestBuilding || !G.nestBuilding.built) {
+    showStatus('먼저 핵심 둥지를 건설하세요.');
+    return;
+  }
+  toggleBuildMode();
+});
+
+function toggleBuildMode() {
+  buildModeActive = !buildModeActive;
+  buildTriggerBtn.classList.toggle('active', buildModeActive);
+  dirtyTerrain(); // 그리드 선 표시/숨김 전환
+  if (!buildModeActive) {
+    setSelectedBuild(null);
+    closeRadialMenu();
+  }
+}
+
+function deactivateBuildMode() {
+  buildModeActive = false;
+  buildTriggerBtn.classList.remove('active');
+  dirtyTerrain();
+  setSelectedBuild(null);
+  closeRadialMenu();
+}
+
+/**
+ * 화면 좌표(clientX, clientY)에 radial menu를 표시한다.
+ * 시계방향으로 건물 아이콘을 배치한다 (12시 시작).
+ */
+function openRadialMenu(clientX, clientY, col, row) {
+  const items = BUILD_GROUPS[0]; // 현재 1그룹
+  radialMenu.innerHTML = '';
+  radialMenu.classList.remove('hidden');
+
+  // 반경 (아이콘 중심까지의 거리)
+  const radius = 55;
+  // 시작 각도: -90도(12시 방향), 시계방향으로 분배
+  const startAngle = -Math.PI / 2;
+  const step = (2 * Math.PI) / items.length;
+
+  // 메뉴 표시 위치: game-container 기준 좌표
+  const container = document.getElementById('game-container');
+  const containerRect = container.getBoundingClientRect();
+  const cx = clientX - containerRect.left;
+  const cy = clientY - containerRect.top;
+
+  for (let i = 0; i < items.length; i++) {
+    const { key } = items[i];
+    const def = BUILDING_DEFS[key];
+    const angle = startAngle + step * i;
+    const ix = cx + Math.cos(angle) * radius;
+    const iy = cy + Math.sin(angle) * radius;
+
+    const el = document.createElement('div');
+    el.className = 'radial-item';
+    el.innerHTML = `<span class="ri-icon">${def.icon}</span><span class="ri-cost">${def.cost}</span>`;
+    el.style.left = ix + 'px';
+    el.style.top  = iy + 'px';
+
+    if (G.resource < def.cost) {
+      el.classList.add('insufficient');
+    }
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (G.resource < def.cost) {
+        showStatus('자원이 부족합니다!');
+        closeRadialMenu();
+        return;
+      }
+      // NEST 레벨별 자원 건물 개수 제한 체크
+      if (key === 'RESOURCE' && G.nestBuilding) {
+        const nestLv = G.nestBuilding.level || 1;
+        const maxRes = NEST_BUILD_CAP[nestLv - 1] || 5;
+        const currentRes = G.buildings.filter(b => b.type === 'RESOURCE').length;
+        if (currentRes >= maxRes) {
+          showStatus(`자원 건물 최대 ${maxRes}개 (둥지 Lv.${nestLv})`);
+          closeRadialMenu();
+          return;
+        }
+      }
+      G.resource -= def.cost;
+      createBuilding(key, col, row);
+      closeRadialMenu();
+      updateHUD();
+    });
+
+    radialMenu.appendChild(el);
+
+    // 애니메이션: 약간의 딜레이 후 표시
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.classList.add('show');
+      });
+    });
+  }
+
+  // radial menu 저장 (다른 곳 클릭 시 닫기 위해)
+  G._radialOpen = true;
+  G._radialCol  = col;
+  G._radialRow  = row;
+}
+
+function closeRadialMenu() {
+  radialMenu.classList.add('hidden');
+  radialMenu.innerHTML = '';
+  G._radialOpen = false;
+}
+
+/** PLACING 상태에서 건설 버튼 숨기기 */
+function updateBuildTriggerVisibility() {
+  if (G.state === STATE.PLACING || G.state === STATE.IDLE || G.state === STATE.GAME_OVER) {
+    buildTriggerBar.style.display = 'none';
+  } else {
+    buildTriggerBar.style.display = '';
+  }
+}
+
+// ── 광고 버프 시스템 ──────────────────────────────────────────────────────────
+
+const adBuffBtn = document.getElementById('ad-buff-btn');
+
+/** 광고 버프 타이머 업데이트 — 매 프레임 호출 */
+function updateAdBuff(dt) {
+  if (!G.adBuff.active) return;
+  G.adBuff.timer -= dt;
+  if (G.adBuff.timer <= 0) {
+    G.adBuff.active = false;
+    G.adBuff.timer  = 0;
+    adBuffBtn.classList.remove('active');
+    adBuffBtn.textContent = 'AD';
+    showStatus('자원 2배 버프가 종료되었습니다');
+  } else {
+    adBuffBtn.textContent = Math.ceil(G.adBuff.timer) + 's';
+  }
+}
+
+adBuffBtn.addEventListener('click', () => {
+  if (G.state !== STATE.COUNTDOWN && G.state !== STATE.WAVE) return;
+  if (G.adBuff.active) return;
+  // 광고 시뮬레이션 (confirm 대화상자)
+  const ok = confirm('광고를 시청하시겠습니까?\n60초 동안 자원 생산량이 2배가 됩니다.');
+  if (!ok) return;
+  G.adBuff.active = true;
+  G.adBuff.timer  = 60;
+  adBuffBtn.classList.add('active');
+  adBuffBtn.textContent = '60s';
+  showStatus('자원 2배 버프 활성화! (60초)');
+});
 
 // ── 18. 메인 게임 루프 ────────────────────────────────────────────────────────
 // requestAnimationFrame 기반. dt는 최대 DT_MAX(0.1s)로 클램핑.
@@ -2726,6 +2967,7 @@ function gameLoop(timestamp) {
   updateHUD();
   updateBuildPanel();
   tickBuildingPanelHP();
+  updateBuildTriggerVisibility();
 
   requestAnimationFrame(gameLoop);
 }

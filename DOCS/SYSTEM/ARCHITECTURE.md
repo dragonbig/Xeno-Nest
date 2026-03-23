@@ -2,7 +2,7 @@
 
 > **카테고리:** SYSTEM
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23
+> **최종 갱신:** 2026-03-23 (Phase 6: Radial Menu UI, 피해량 플로팅 텍스트, 광고 버프)
 > **관련 기능:** 게임 루프, 상태 관리, 렌더링 파이프라인
 
 ## 개요
@@ -52,7 +52,10 @@ index.html
     │   │   └── renderEnemyProjectiles()
     │   ├── updateHUD()                 ← DOM 업데이트
     │   ├── updateBuildPanel()          ← DOM 업데이트
-    │   └── tickBuildingPanelHP()       ← DOM 부분 업데이트 (HP만)
+    │   ├── tickBuildingPanelHP()       ← DOM 부분 업데이트 (HP + 버튼 disabled)
+    │   ├── updateAdBuff(dt)            ← 광고 버프 타이머
+    │   ├── updateFloatingTexts(dt)     ← 피해량 플로팅 텍스트 업데이트
+    │   └── renderFloatingTexts()       ← 피해량 플로팅 텍스트 렌더링
     │
     ├── 입력 처리
     │   ├── mousedown / mousemove / mouseup   (드래그 팬 + 클릭 분기)
@@ -60,10 +63,12 @@ index.html
     │   └── zoom-in / zoom-out 버튼
     │
     └── UI 패널 (DOM)
-        ├── build-panel     (하단 건물 선택)
-        ├── building-panel  (건물 정보/진화/철거)
-        ├── hud-top         (자원 / 위협 단계 / 남은 시간 / 둥지 HP)
-        └── overlay         (시작 화면 / 게임 오버)
+        ├── build-trigger-bar  (중앙 하단 건설 버튼 1개)
+        ├── radial-menu        (원형 건물 선택 메뉴, DOM 오버레이)
+        ├── building-panel     (건물 정보/진화/철거)
+        ├── hud-top            (자원 / 위협 단계 / 남은 시간 / 둥지 HP)
+        ├── ad-buff-btn        (좌측 상단 광고 버프 버튼)
+        └── overlay            (시작 화면 / 게임 오버)
 ```
 
 ---
@@ -118,9 +123,10 @@ G = {
   nextId,           // 엔티티 고유 ID 카운터
   towerTimers,      // { towerId: 다음 발사까지 남은 시간 }
   resourceTimers,   // { resourceBldId: 다음 생산까지 남은 시간 }
-  selfRepairUnlocked, // 자가 수리 업그레이드 활성 여부
+  globalUpgrades,   // { SELF_REPAIR, THORN_BOOST, SPORE_BOOST, WALL_DEFENSE, RESOURCE_BOOST, WALL_FORTIFY } (각 0~30)
   repairTimer,      // 자가 수리 타이머
-  nestUpgrades,     // Set — 적용된 글로벌 업그레이드 id
+  floatingTexts,    // 피해량 플로팅 텍스트 배열 { x, y, text, color, life, maxLife }
+  adBuff,           // { active: boolean, timer: number } 광고 버프 상태
   prevTime,         // 이전 프레임 timestamp (dt 계산용)
   camera,           // { x, y, zoom }
   drag,             // { active, startX, startY, camStartX, camStartY, moved }
