@@ -737,6 +737,15 @@ function startUpgrade(building) {
 
 // ── 7. 적 생성 헬퍼 ──────────────────────────────────────────────────────────
 
+// WARRIOR/MAGE는 첫 등장 이후 단계가 오를수록 공격력 증가 (단계당 +15%)
+const SCALED_ENEMY_TYPES = { WARRIOR: 6, MAGE: 6 }; // 첫 등장 스케줄 인덱스
+function scaleAttackDmg(type, baseDmg) {
+  const firstIdx = SCALED_ENEMY_TYPES[type];
+  if (firstIdx === undefined) return baseDmg;
+  const stagesAbove = Math.max(0, G.scheduleIdx - firstIdx);
+  return Math.round(baseDmg * (1 + stagesAbove * 0.15));
+}
+
 function spawnEnemy(type, entranceIndex) {
   const def    = ENEMY_DEFS[type];
   const idx    = entranceIndex % ENTRANCES.length;
@@ -780,7 +789,7 @@ function spawnEnemy(type, entranceIndex) {
     speed:       def.speed,
     damage:      def.damage,
     reward:      def.reward,
-    attackDmg:   def.attackDmg,
+    attackDmg:   scaleAttackDmg(type, def.attackDmg),
     attackRate:  def.attackRate,
     attackTimer: 0,
     targetBldId: null, // 현재 공격 중인 건물 id (직선 추적 시 갱신됨)
