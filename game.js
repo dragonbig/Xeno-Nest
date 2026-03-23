@@ -568,6 +568,7 @@ function initGame() {
     },
     paused:        false,
     adBuff:        { active: false, timer: 0 },
+    _nestPopupOpen: false,
     _radialOpen:   false,
     _radialCol:    0,
     _radialRow:    0,
@@ -1028,6 +1029,13 @@ function onTileClicked(col, row) {
 
   // PREP / COUNTDOWN / WAVE 상태
   if (G.state === STATE.PREP || G.state === STATE.COUNTDOWN || G.state === STATE.WAVE) {
+    // NEST 팝업이 열려 있으면 닫기
+    if (G._nestPopupOpen) {
+      closeNestPopup();
+      G.selectedBuildingId = null;
+      return;
+    }
+
     // radial menu가 열려 있으면 닫기 (메뉴 바깥 클릭)
     if (G._radialOpen) {
       closeRadialMenu();
@@ -1047,11 +1055,15 @@ function onTileClicked(col, row) {
         && G.distanceMap && G.distanceMap[row][col] < Infinity;
       const isEntrance = currentTile === TILE.ENTRANCE;
 
-      // 건물이 있는 타일 클릭 시 → 건물 radial menu 열기
+      // 건물이 있는 타일 클릭 시 → 건물 radial menu 열기 (NEST는 전용 팝업)
       const existingBuilding = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
       if (existingBuilding) {
         deactivateBuildMode();
-        openBuildingRadialMenu(G._lastClientX, G._lastClientY, existingBuilding);
+        if (existingBuilding.type === 'NEST') {
+          openNestUpgradePopup(existingBuilding);
+        } else {
+          openBuildingRadialMenu(G._lastClientX, G._lastClientY, existingBuilding);
+        }
         return;
       }
 
@@ -1086,7 +1098,11 @@ function onTileClicked(col, row) {
     // 건설 모드가 아닐 때: 건물 클릭이면 radial menu 열기, 빈 타일이면 패널 닫기 (다중 타일 대응)
     const clicked = G.buildings.find(b => col >= b.col && col < b.col + (b.w||1) && row >= b.row && row < b.row + (b.h||1));
     if (clicked) {
-      openBuildingRadialMenu(G._lastClientX, G._lastClientY, clicked);
+      if (clicked.type === 'NEST') {
+        openNestUpgradePopup(clicked);
+      } else {
+        openBuildingRadialMenu(G._lastClientX, G._lastClientY, clicked);
+      }
     } else {
       closeBuildingPanel();
     }
@@ -3166,6 +3182,160 @@ function openBuildingRadialMenu(clientX, clientY, building) {
   G._radialRow  = building.row;
 }
 
+// ── NEST 전용 업그레이드 팝업 ─────────────────────────────────────────────────
+
+const nestPopup = document.getElementById('nest-popup');
+
+function openNestUpgradePopup(building) {
+  closeRadialMenu();
+  closeBuildingPanel();
+  G.selectedBuildingId = building.id;
+  G._nestPopupOpen = true;
+
+  nestPopup.innerHTML = '';
+  nestPopup.classList.remove('hidden');
+
+  const def = BUILDING_DEFS.NEST;
+
+  // 헤더: 둥지 정보
+  const header = document.createElement('div');
+  header.className = 'nest-popup-header';
+  header.innerHTML = `${def.icon} ${def.name} Lv.${building.level} | HP ${building.hp}/${building.hpMax}`;
+  nestPopup.appendChild(header);
+
+  // 둥지 진화 버튼
+  const maxNestLv = 3;
+  const atMax = building.level >= maxNestLv;
+  const upgCost = atMax ? null : def.upgradeCost[building.level - 1];
+  const nestBtn = document.createElement('button');
+  nestBtn.className = 'nest-popup-btn';
+  if (atMax) {
+    nestBtn.innerHTML = `<span class="npb-left"><span class="npb-icon">⬆</span><span class="npb-name">둥지 진화</span><span class="npb-lv">Lv.${building.level}</span></span><span class="npb-cost max">MAX</span>`;
+    nestBtn.classList.add('disabled');
+  } else if (building.upgrading) {
+    nestBtn.innerHTML = `<span class="npb-left"><span class="npb-icon">⬆</span><span class="npb-name">둥지 진화</span><span class="npb-lv">Lv.${building.level}→${building.level+1}</span></span><span class="npb-cost">${Math.ceil(building.upgradeTimer)}s</span>`;
+    nestBtn.classList.add('disabled');
+  } else {
+    const canAfford = G.resource >= upgCost;
+    nestBtn.innerHTML = `<span class="npb-left"><span class="npb-icon">⬆</span><span class="npb-name">둥지 진화</span><span class="npb-lv">Lv.${building.level}→${building.level+1}</span></span><span class="npb-cost">${upgCost}</span>`;
+    nestBtn.dataset.cost = upgCost;
+    if (!canAfford) nestBtn.classList.add('disabled');
+    nestBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (startUpgrade(building)) {
+        openNestUpgradePopup(building); // 갱신
+      } else {
+        showStatus('업그레이드 불가: 자원 부족');
+      }
+    });
+  }
+  nestPopup.appendChild(nestBtn);
+
+  // 구분선: 글로벌 업그레이드
+  const secHeader = document.createElement('div');
+  secHeader.className = 'nest-popup-section';
+  secHeader.textContent = '── 글로벌 업그레이드 ──';
+  nestPopup.appendChild(secHeader);
+
+  // 방벽 업그레이드 묶음 ID
+  const WALL_UPG_IDS = ['WALL_DEFENSE', 'WALL_FORTIFY'];
+
+  // 일반 글로벌 업그레이드
+  for (const upg of GLOBAL_UPGRADES) {
+    if (WALL_UPG_IDS.includes(upg.id)) continue;
+    nestPopup.appendChild(createNestUpgBtn(upg, building));
+  }
+
+  // 방벽 업그레이드 섹션
+  const wallSec = document.createElement('div');
+  wallSec.className = 'nest-popup-section';
+  wallSec.textContent = '── 방벽 업그레이드 ──';
+  nestPopup.appendChild(wallSec);
+
+  for (const uid of WALL_UPG_IDS) {
+    const upg = GLOBAL_UPGRADES.find(u => u.id === uid);
+    if (upg) nestPopup.appendChild(createNestUpgBtn(upg, building));
+  }
+
+  // 팝업 위치: 둥지 화면 좌표 기준
+  positionNestPopup(building);
+}
+
+function createNestUpgBtn(upg, nestBuilding) {
+  const curLv = G.globalUpgrades[upg.id];
+  const btn = document.createElement('button');
+  btn.className = 'nest-popup-btn';
+
+  if (curLv >= upg.maxLv) {
+    btn.innerHTML = `<span class="npb-left"><span class="npb-icon">${upg.icon}</span><span class="npb-name">${upg.name}</span><span class="npb-lv">Lv.${curLv}</span></span><span class="npb-cost max">MAX</span>`;
+    btn.classList.add('disabled');
+  } else {
+    const cost = upg.cost[curLv];
+    const canAfford = G.resource >= cost;
+    btn.innerHTML = `<span class="npb-left"><span class="npb-icon">${upg.icon}</span><span class="npb-name">${upg.name}</span><span class="npb-lv">Lv.${curLv}→${curLv+1}</span></span><span class="npb-cost">${cost}</span>`;
+    btn.dataset.cost = cost;
+    if (!canAfford) btn.classList.add('disabled');
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (G.globalUpgrades[upg.id] >= upg.maxLv) return;
+      const c = upg.cost[G.globalUpgrades[upg.id]];
+      if (G.resource < c) { showStatus('자원 부족'); return; }
+      G.resource -= c;
+      G.globalUpgrades[upg.id]++;
+      if (upg.id === 'SELF_REPAIR' && G.globalUpgrades.SELF_REPAIR === 1) {
+        G.repairTimer = HEAL_INTERVAL;
+      }
+      updateHUD();
+      openNestUpgradePopup(nestBuilding); // 갱신
+    });
+  }
+  return btn;
+}
+
+function positionNestPopup(building) {
+  const container = document.getElementById('game-container');
+  const containerRect = container.getBoundingClientRect();
+  const bc = getBuildingCenter(building);
+
+  // 월드 좌표 → 화면 좌표
+  const screenX = (bc.x - G.camera.x) * G.camera.zoom;
+  const screenY = (bc.y - G.camera.y) * G.camera.zoom;
+
+  // 팝업을 둥지 오른쪽에 배치, 화면 밖이면 왼쪽으로
+  const popupW = 220;
+  let left = screenX + 40;
+  if (left + popupW > containerRect.width) {
+    left = screenX - popupW - 20;
+  }
+  let top = screenY - 60;
+  top = Math.max(50, Math.min(top, containerRect.height - 300));
+
+  nestPopup.style.left = left + 'px';
+  nestPopup.style.top  = top + 'px';
+}
+
+// 팝업 클릭 시 캔버스 이벤트 전파 방지
+nestPopup.addEventListener('click', (e) => e.stopPropagation());
+nestPopup.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+function closeNestPopup() {
+  nestPopup.classList.add('hidden');
+  nestPopup.innerHTML = '';
+  G._nestPopupOpen = false;
+}
+
+// NEST 팝업 실시간 갱신: 자원 변동 시 버튼 활성/비활성 토글
+function tickNestPopup() {
+  if (!G._nestPopupOpen) return;
+  const btns = nestPopup.querySelectorAll('.nest-popup-btn[data-cost]');
+  for (const btn of btns) {
+    const cost = parseInt(btn.dataset.cost, 10);
+    const shouldDisable = G.resource < cost;
+    if (shouldDisable && !btn.classList.contains('disabled')) btn.classList.add('disabled');
+    else if (!shouldDisable && btn.classList.contains('disabled')) btn.classList.remove('disabled');
+  }
+}
+
 /** PLACING 상태에서 건설 버튼 숨기기 */
 function updateBuildTriggerVisibility() {
   if (G.state === STATE.PLACING || G.state === STATE.IDLE || G.state === STATE.GAME_OVER) {
@@ -3243,6 +3413,7 @@ function gameLoop(timestamp) {
   updateHUD();
   updateBuildPanel();
   tickBuildingPanelHP();
+  tickNestPopup();
   updateBuildTriggerVisibility();
 
   requestAnimationFrame(gameLoop);
