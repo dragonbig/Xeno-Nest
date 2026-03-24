@@ -1805,13 +1805,25 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimA
       break;
     }
     case 'THORN': {
-      // 가시 촉수: 적갈색 배경 + 🌵 이모지
-      ctx.fillStyle = color;
-      ctx.fillRect(x + 2, y + 2, renderW - 4, renderH - 4);
-      ctx.font = `${Math.round(h * 1.4)}px serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🌵', cx, cy + 1);
+      // 가시 촉수: 적갈색 4각별 (플러스+별 혼합 형태)
+      ctx.fillStyle = color; // #8B2500 적갈색
+      ctx.beginPath();
+      const starPts = 8; // 꼭짓점 수 (4뾰족+4오목 = 4각별)
+      const outerR  = h * 0.88;
+      const innerR  = h * 0.32;
+      for (let i = 0; i < starPts; i++) {
+        const ang = (i / starPts) * Math.PI * 2 - Math.PI / 2;
+        const r   = i % 2 === 0 ? outerR : innerR;
+        i === 0 ? ctx.moveTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r)
+                : ctx.lineTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // 중앙 작은 원 (강조)
+      ctx.fillStyle = '#c04010';
+      ctx.beginPath();
+      ctx.arc(cx, cy, h * 0.18, 0, Math.PI * 2);
+      ctx.fill();
       break;
     }
     case 'SPORE': {
@@ -1854,9 +1866,7 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimA
       break;
     }
     case 'BALLISTA': {
-      // 외골격 가시 타워: 배경 + 🏹 이모지를 공격 방향으로 회전
-      ctx.fillStyle = color;
-      ctx.fillRect(x + 2, y + 2, renderW - 4, renderH - 4);
+      // 외골격 가시 타워: 🏹 이모지를 공격 방향으로 회전 (배경 없음)
       ctx.save();
       ctx.translate(cx, cy);
       // 🏹 기본 방향이 오른쪽(0°)이므로, aimAngle 그대로 적용
