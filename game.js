@@ -2079,15 +2079,31 @@ function renderAoeFlashes() {
   for (const f of G.aoeFlashes) {
     const alpha = f.life / f.maxLife;
     ctx.save();
-    ctx.globalAlpha = alpha * 0.45;
-    ctx.fillStyle = '#ff4400';
-    ctx.beginPath();
-    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = alpha * 0.8;
-    ctx.strokeStyle = '#ff8800';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    if (f.tiles) {
+      // 직선 3타일 플래시 — 각 타일을 1×1 사각형으로 표시
+      for (const t of f.tiles) {
+        const rx = t.x - TILE_SIZE / 2;
+        const ry = t.y - TILE_SIZE / 2;
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.fillStyle = '#ff4400';
+        ctx.fillRect(rx, ry, TILE_SIZE, TILE_SIZE);
+        ctx.globalAlpha = alpha * 0.9;
+        ctx.strokeStyle = '#ff8800';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rx, ry, TILE_SIZE, TILE_SIZE);
+      }
+    } else {
+      // 구형 원형 플래시 (호환용)
+      ctx.globalAlpha = alpha * 0.45;
+      ctx.fillStyle = '#ff4400';
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }
@@ -2374,61 +2390,65 @@ function updateEnemies(dt) {
 }
 
 /**
- * NOVICE_HERO AoE 스킬 — 적 위치에서 NEST 방향 전방 1.5타일 지점을 중심으로
- * 반경 3타일(144px) 내 완성 건물에 HERO 공격 피해 200을 입힌다.
+ * NOVICE_HERO 스킬 — NEST 방향 전방 1·2·3칸 타일을 1자로 순서대로 타격.
+ * 각 칸은 겹치지 않는 1×1 타일이며 해당 타일에 건물이 있으면 피해를 입힌다.
  */
 function fireNoviceHeroAoe(enemy) {
   if (!G.nestBuilding || !G.nestBuilding.built) return;
 
   const nestCenter = getBuildingCenter(G.nestBuilding);
-  const dx = nestCenter.x - enemy.x;
-  const dy = nestCenter.y - enemy.y;
+  const dx   = nestCenter.x - enemy.x;
+  const dy   = nestCenter.y - enemy.y;
   const dist = Math.hypot(dx, dy);
 
   // NEST 방향 단위벡터
   const ux = dist > 0 ? dx / dist : 0;
   const uy = dist > 0 ? dy / dist : 0;
 
-  // AoE 중심: 적 위치에서 NEST 방향으로 1.5타일 앞
-  const aoeOffset = TILE_SIZE * 1.5;
-  const aoeCX = enemy.x + ux * aoeOffset;
-  const aoeCY = enemy.y + uy * aoeOffset;
-  const aoeRange = ENEMY_DEFS.NOVICE_HERO.aoeRange; // 3 * TILE_SIZE = 144px
-  const aoeDmg   = ENEMY_DEFS.NOVICE_HERO.aoeDmg;   // 200
+  const aoeDmg = ENEMY_DEFS.NOVICE_HERO.aoeDmg;
 
-  // 범위 내 완성된 건물에 HERO 피해 적용
-  for (const b of G.buildings) {
-    if (!b.built) continue;
-    const bc = getBuildingCenter(b);
-    if (Math.hypot(bc.x - aoeCX, bc.y - aoeCY) <= aoeRange) {
+  // 전방 1~3칸 타일 중심 좌표
+  const tileHits = [];
+  for (let i = 1; i <= 3; i++) {
+    tileHits.push({
+      x: enemy.x + ux * TILE_SIZE * i,
+      y: enemy.y + uy * TILE_SIZE * i,
+    });
+  }
+
+  // 중복 피해 방지 Set
+  const damagedIds = new Set();
+  for (const t of tileHits) {
+    const hitCol = Math.floor(t.x / TILE_SIZE);
+    const hitRow = Math.floor(t.y / TILE_SIZE);
+    for (const b of G.buildings) {
+      if (!b.built || damagedIds.has(b.id)) continue;
+      const bw = b.w || 1, bh = b.h || 1;
+      let hit = false;
+      for (let dr = 0; dr < bh && !hit; dr++) {
+        for (let dc = 0; dc < bw && !hit; dc++) {
+          if (b.col + dc === hitCol && b.row + dr === hitRow) hit = true;
+        }
+      }
+      if (!hit) continue;
+      damagedIds.add(b.id);
       const mult = (DAMAGE_TABLE['HERO'] || {})[b.armorType] || 1.0;
       let dmg = Math.round(aoeDmg * mult);
-      {
-        const defLv = G.globalUpgrades.STRUCTURE_DEFENSE;
-        dmg = Math.round(dmg * (1 - defLv * 0.02));
-        if (dmg < 1) dmg = 1;
-      }
+      const defLv = G.globalUpgrades.STRUCTURE_DEFENSE;
+      dmg = Math.round(dmg * (1 - defLv * 0.02));
+      if (dmg < 1) dmg = 1;
+      const bc = getBuildingCenter(b);
       b.hp -= dmg;
       spawnFloatingText(bc.x, bc.y, `-${dmg}`, '#ff8800');
       if (b.hp <= 0) {
-        if (b.type === 'NEST') {
-          triggerGameOver();
-          return; // 게임 오버 후 추가 처리 불필요
-        } else {
-          removeBuilding(b);
-        }
+        if (b.type === 'NEST') { triggerGameOver(); return; }
+        else removeBuilding(b);
       }
     }
   }
 
-  // AoE 플래시 효과 등록
-  G.aoeFlashes.push({
-    x: aoeCX,
-    y: aoeCY,
-    r: aoeRange,
-    life: 0.5,
-    maxLife: 0.5,
-  });
+  // 플래시 효과: 3개 타일 위치를 직사각형으로 표시
+  G.aoeFlashes.push({ tiles: tileHits, life: 0.5, maxLife: 0.5 });
 }
 
 /** AoE 플래시 수명 감소 및 만료 제거 */
