@@ -65,7 +65,7 @@ const BUILDING_DEFS = Object.freeze({
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
   RESOURCE: { name: '자원건물',   cost: 40,  buildTime: 3,  tile: TILE.RESOURCE, icon: '💎', color: '#c0a020', hpMax: 100,  armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11], upgradeCost: [150, 500, 1500, 3000, null] },
-  BALLISTA: { name: '발리스타',   cost: 80,  buildTime: 4,  tile: TILE.BALLISTA, icon: '🏹', color: '#704020', hpMax: 90,   armorType: 'STRUCTURE',
+  BALLISTA: { name: '외골격 가시 타워', cost: 80,  buildTime: 4,  tile: TILE.BALLISTA, icon: '🏹', color: '#704020', hpMax: 90,   armorType: 'STRUCTURE',
               upgradeTime: [9, 10, 11, 12], upgradeCost: [200, 600, 1800, 3500, null] },
 });
 
@@ -84,28 +84,20 @@ const GLOBAL_UPGRADES = Object.freeze([
     effectDesc: lv => `건물 ${8 + lv * 4}HP/10초 자동 회복`,
   },
   {
-    id: 'THORN_BOOST',
-    name: '촉수 강화',
-    icon: '🌿',
+    id: 'TOWER_BOOST',
+    name: '공격 타워 강화',
+    icon: '⚔️',
     maxLv: 30,
     cost: [100,118,139,164,194,229,270,319,376,444,523,618,729,860,1015,1197,1413,1667,1967,2321,2739,3232,3814,4501,5311,6267,7395,8726,10297,12150],
-    effectDesc: lv => `THORN 공격력 +${lv * 3}%, 발사속도 +${lv * 2}%`,
+    effectDesc: lv => `모든 공격 타워 공격력 +${lv * 3}%, 발사속도 +${lv * 2}%`,
   },
   {
-    id: 'SPORE_BOOST',
-    name: '포자 강화',
-    icon: '🟤',
-    maxLv: 30,
-    cost: [100,118,139,164,194,229,270,319,376,444,523,618,729,860,1015,1197,1413,1667,1967,2321,2739,3232,3814,4501,5311,6267,7395,8726,10297,12150],
-    effectDesc: lv => `SPORE 공격력 +${lv * 3}%, 슬로우 지속 +${lv * 5}%`,
-  },
-  {
-    id: 'WALL_DEFENSE',
-    name: '방벽 방어력',
+    id: 'STRUCTURE_DEFENSE',
+    name: '구조물 방어력',
     icon: '🛡️',
     maxLv: 30,
     cost: [100,118,139,164,194,229,270,319,376,444,523,618,729,860,1015,1197,1413,1667,1967,2321,2739,3232,3814,4501,5311,6267,7395,8726,10297,12150],
-    effectDesc: lv => `방어벽 피해 ${(lv * 2).toFixed(0)}% 감소`,
+    effectDesc: lv => `모든 구조물 피해 ${(lv * 2).toFixed(0)}% 감소`,
   },
   {
     id: 'RESOURCE_BOOST',
@@ -116,18 +108,18 @@ const GLOBAL_UPGRADES = Object.freeze([
     effectDesc: lv => `RESOURCE 생산량 +${lv * 3}%`,
   },
   {
-    id: 'WALL_FORTIFY',
-    name: '방벽 강화',
+    id: 'STRUCTURE_FORTIFY',
+    name: '구조물 체력 강화',
     icon: '🧱',
     maxLv: 30,
     cost: [100,118,139,164,194,229,270,319,376,444,523,618,729,860,1015,1197,1413,1667,1967,2321,2739,3232,3814,4501,5311,6267,7395,8726,10297,12150],
-    effectDesc: lv => `WALL HP 최대치 +${lv * 3}%`,
+    effectDesc: lv => `모든 구조물 HP 최대치 +${lv * 3}%`,
   },
 ]);
 
 // 가시 촉수 스탯 (레벨 1~5 배열)
 const THORN_STATS = Object.freeze({
-  range:      [3.0, 3.2, 3.4, 3.6, 3.8],
+  range:      [4.0, 4.2, 4.4, 4.6, 4.8],
   damage:     [18,  26,  35,  45,  58 ],
   fireRate:   [2.0, 2.2, 2.4, 2.6, 3.0],
   projSpeed:  400,  // 2배 속도
@@ -137,7 +129,7 @@ const THORN_STATS = Object.freeze({
 
 // 산성 포자 스탯 (레벨 1~5 배열)
 const SPORE_STATS = Object.freeze({
-  range:        [4.0, 4.3, 4.6, 5.0, 5.5],
+  range:        [5.0, 5.3, 5.6, 6.0, 6.5],
   damage:       [15,  22,  30,  40,  52 ],
   fireRate:     [0.6, 0.65, 0.7, 0.8, 0.9],
   projSpeed:    140,
@@ -147,12 +139,12 @@ const SPORE_STATS = Object.freeze({
   splashRadius: 1.2,  // 범위 피해 반경 (타일 단위)
 });
 
-// 발리스타 스탯 (레벨 1~5 배열) — 물리 원거리, ranged 적 우선 타겟팅
+// 외골격 가시 타워 스탯 (레벨 1~5 배열) — 물리 원거리, ranged 적 우선 타겟팅
 const BALLISTA_STATS = Object.freeze({
-  range:      [5.0, 5.5, 6.0, 6.5, 7.0],
+  range:      [10.0, 10.5, 11.0, 11.5, 12.0],
   damage:     [55,  80,  110, 145, 190],
   fireRate:   [0.5, 0.55, 0.6, 0.65, 0.75],
-  projSpeed:  350,
+  projSpeed:  700,
   attackType: 'PHYSICAL',
 });
 
@@ -285,7 +277,7 @@ const DT_MAX             = 0.1; // 초, 탭 전환 후 큰 dt 클램핑
 const NEST_ZONE = Object.freeze({ colMin: 9, colMax: 10, rowMin: 3, rowMax: 4 });
 
 // NEST 레벨별 최대 건물 배치 수 (NEST 제외)
-const NEST_BUILD_CAP = Object.freeze([5, 10, 25]); // Lv.1=5, Lv.2=10, Lv.3=25
+const NEST_BUILD_CAP = Object.freeze([10, 15, 30]); // Lv.1=10, Lv.2=15, Lv.3=30
 
 // NEST 자원 생산
 const NEST_RESOURCE_INTERVAL = 8;  // 초마다 생산
@@ -581,12 +573,11 @@ function initGame() {
     statusTimer:  0,    // 상태 메시지 표시 타이머
     repairTimer:  0,
     globalUpgrades: {
-      SELF_REPAIR:    0,
-      THORN_BOOST:    0,
-      SPORE_BOOST:    0,
-      WALL_DEFENSE:   0,
-      RESOURCE_BOOST: 0,
-      WALL_FORTIFY:   0,
+      SELF_REPAIR:       0,
+      TOWER_BOOST:       0,
+      STRUCTURE_DEFENSE: 0,
+      RESOURCE_BOOST:    0,
+      STRUCTURE_FORTIFY: 0,
     },
     paused:        false,
     adBuff:        { active: false, timer: 0 },
@@ -647,10 +638,12 @@ function createBuilding(type, col, row) {
   if (type === 'WALL') {
     // 현재 공격 중인 적 ID 목록. 용량 계산에 사용한다.
     building.attackers = [];
-    // WALL_FORTIFY 보너스를 신규 WALL에 즉시 반영
-    const fortifyLv = G.globalUpgrades ? G.globalUpgrades.WALL_FORTIFY : 0;
+  }
+  // STRUCTURE_FORTIFY 보너스를 신규 건물에 즉시 반영
+  {
+    const fortifyLv = G.globalUpgrades ? G.globalUpgrades.STRUCTURE_FORTIFY : 0;
     if (fortifyLv > 0) {
-      const baseHpMax = def.hpPerLevel[0]; // 신규 WALL은 항상 Lv.1
+      const baseHpMax = def.hpPerLevel ? def.hpPerLevel[0] : def.hpMax;
       const newHpMax  = Math.round(baseHpMax * (1 + fortifyLv * 0.03));
       building.hp     = newHpMax;
       building.hpMax  = newHpMax;
@@ -715,17 +708,24 @@ function removeBuilding(building) {
 }
 
 /**
- * WALL_FORTIFY 업그레이드 구매 시 기존 모든 WALL의 hpMax를 재계산한다.
+ * STRUCTURE_FORTIFY 업그레이드 구매 시 기존 모든 구조물의 hpMax를 재계산한다.
  * HP 비율을 유지하여 업그레이드가 즉각적으로 반영된다.
  */
-function recalcWallHp() {
-  const fortifyLv = G.globalUpgrades.WALL_FORTIFY;
+function recalcStructureHp() {
+  const fortifyLv = G.globalUpgrades.STRUCTURE_FORTIFY;
   for (const b of G.buildings) {
-    if (b.type !== 'WALL') continue;
-    const def = BUILDING_DEFS.WALL;
-    const baseHpMax = def.hpPerLevel[b.level - 1];
-    const newHpMax  = Math.round(baseHpMax * (1 + fortifyLv * 0.03));
-    const ratio     = b.hpMax > 0 ? b.hp / b.hpMax : 1;
+    if (!b.built) continue;
+    const def = BUILDING_DEFS[b.type];
+    let baseHpMax;
+    if (def.hpPerLevel) {
+      baseHpMax = def.hpPerLevel[b.level - 1];
+    } else if (b.level <= 1) {
+      baseHpMax = def.hpMax;
+    } else {
+      baseHpMax = Math.round(def.hpMax * (1 + b.level * 0.15));
+    }
+    const newHpMax = Math.round(baseHpMax * (1 + fortifyLv * 0.03));
+    const ratio    = b.hpMax > 0 ? b.hp / b.hpMax : 1;
     b.hpMax = newHpMax;
     b.hp    = Math.min(b.hpMax, Math.round(b.hpMax * ratio));
   }
@@ -2072,15 +2072,17 @@ function updateBuildTimers(dt) {
         b.level += 1;
         const oldMax = b.hpMax;
         if (b.type === 'WALL') {
-          // WALL_FORTIFY 보너스를 포함한 hpMax 계산
-          const fortifyLv = G.globalUpgrades.WALL_FORTIFY;
+          // STRUCTURE_FORTIFY 보너스를 포함한 hpMax 계산
+          const fortifyLv = G.globalUpgrades.STRUCTURE_FORTIFY;
           b.hpMax = Math.round(def.hpPerLevel[b.level - 1] * (1 + fortifyLv * 0.03));
         } else if (b.type === 'NEST') {
-          // hpPerLevel 배열로 직접 지정된 hpMax 사용
-          b.hpMax = def.hpPerLevel[b.level - 1];
+          // hpPerLevel 배열로 직접 지정 + STRUCTURE_FORTIFY 보너스
+          const fortifyLv = G.globalUpgrades.STRUCTURE_FORTIFY;
+          b.hpMax = Math.round(def.hpPerLevel[b.level - 1] * (1 + fortifyLv * 0.03));
         } else {
-          // THORN/SPORE/REPAIR/RESOURCE: 기준 hpMax에서 레벨당 15% 증가
-          b.hpMax = Math.round(def.hpMax * (1 + b.level * 0.15));
+          // THORN/SPORE/REPAIR/RESOURCE/BALLISTA: 기준 hpMax + STRUCTURE_FORTIFY 보너스
+          const fortifyLv = G.globalUpgrades.STRUCTURE_FORTIFY;
+          b.hpMax = Math.round(def.hpMax * (1 + b.level * 0.15) * (1 + fortifyLv * 0.03));
         }
         b.hp = Math.min(b.hpMax, b.hp + (b.hpMax - oldMax));
 
@@ -2396,8 +2398,8 @@ function pursueTarget(e, dt) {
         fireEnemyProjectile(e, target);
       } else {
         let dmg = e.attackDmg;
-        if (target.type === 'WALL') {
-          const defLv = G.globalUpgrades.WALL_DEFENSE;
+        {
+          const defLv = G.globalUpgrades.STRUCTURE_DEFENSE;
           dmg = Math.round(dmg * (1 - defLv * 0.02));
           if (dmg < 1) dmg = 1; // 최소 1 피해
         }
@@ -2486,7 +2488,11 @@ function updateTowers(dt) {
       G.towerTimers[b.id] = 1 / BALLISTA_STATS.fireRate[lv];
       if (!target) continue;
 
-      fireProjectile(b, target, bpx, BALLISTA_STATS.damage[lv], BALLISTA_STATS.attackType);
+      const towerBoostLv = G.globalUpgrades.TOWER_BOOST;
+      const ballistaDmg  = Math.round(BALLISTA_STATS.damage[lv] * (1 + towerBoostLv * 0.03));
+      const ballistaRate = BALLISTA_STATS.fireRate[lv] * (1 + towerBoostLv * 0.02);
+      G.towerTimers[b.id] = 1 / ballistaRate;
+      fireProjectile(b, target, bpx, ballistaDmg, BALLISTA_STATS.attackType);
       continue;
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -2514,20 +2520,12 @@ function updateTowers(dt) {
       const attackType = stats.attackType;
       const mult       = (DAMAGE_TABLE[attackType] || {})[target.armorType] || 1.0;
 
-      if (b.type === 'THORN') {
-        // THORN_BOOST: 공격력 +3%/lv, 발사속도 +2%/lv
-        const thornLv        = G.globalUpgrades.THORN_BOOST;
-        const effectiveDamage   = Math.round(stats.damage[lv] * (1 + thornLv * 0.03) * mult);
-        const effectiveFireRate = stats.fireRate[lv] * (1 + thornLv * 0.02);
-        fireProjectile(b, target, bpx, effectiveDamage, attackType);
-        G.towerTimers[b.id] = 1 / effectiveFireRate;
-      } else {
-        // SPORE_BOOST: 공격력 +3%/lv
-        const sporeLv        = G.globalUpgrades.SPORE_BOOST;
-        const effectiveDamage = Math.round(stats.damage[lv] * (1 + sporeLv * 0.03) * mult);
-        fireProjectile(b, target, bpx, effectiveDamage, attackType);
-        G.towerTimers[b.id] = 1 / stats.fireRate[lv];
-      }
+      // TOWER_BOOST: 모든 공격 타워 공격력 +3%/lv, 발사속도 +2%/lv
+      const towerBoostLv    = G.globalUpgrades.TOWER_BOOST;
+      const effectiveDamage   = Math.round(stats.damage[lv] * (1 + towerBoostLv * 0.03) * mult);
+      const effectiveFireRate = stats.fireRate[lv] * (1 + towerBoostLv * 0.02);
+      fireProjectile(b, target, bpx, effectiveDamage, attackType);
+      G.towerTimers[b.id] = 1 / effectiveFireRate;
     }
   }
 }
@@ -2604,7 +2602,7 @@ function updateProjectiles(dt) {
         spawnFloatingText(target.x, target.y - target.radius, `-${p.damage}`, '#ffff60');
         // ACID 투사체 — 범위 피해 + 슬로우 디버프
         if (p.attackType === 'ACID') {
-          const sporeLv = G.globalUpgrades.SPORE_BOOST;
+          const sporeLv = G.globalUpgrades.TOWER_BOOST;
           const splashPx = SPORE_STATS.splashRadius * TILE_SIZE;
           // 명중 대상에 슬로우
           target.slowedTimer = SPORE_STATS.slowDuration * (1 + sporeLv * 0.05);
@@ -2643,7 +2641,7 @@ function updateProjectiles(dt) {
           e.hp -= p.damage;
           spawnFloatingText(e.x, e.y - e.radius, `-${p.damage}`, '#ffff60');
           if (p.attackType === 'ACID') {
-            const sporeLv = G.globalUpgrades.SPORE_BOOST;
+            const sporeLv = G.globalUpgrades.TOWER_BOOST;
             const splashPx = SPORE_STATS.splashRadius * TILE_SIZE;
             e.slowedTimer = SPORE_STATS.slowDuration * (1 + sporeLv * 0.05);
             e.slowAmount  = SPORE_STATS.slowAmount;
@@ -2767,8 +2765,8 @@ function updateEnemyProjectiles(dt) {
       const d  = Math.hypot(p.x - tp.x, p.y - tp.y);
       if (d < TILE_SIZE * 0.6) {
         let dmg = p.damage;
-        if (target.type === 'WALL') {
-          const defLv = G.globalUpgrades.WALL_DEFENSE;
+        {
+          const defLv = G.globalUpgrades.STRUCTURE_DEFENSE;
           dmg = Math.round(dmg * (1 - defLv * 0.02));
           if (dmg < 1) dmg = 1;
         }
@@ -2866,7 +2864,7 @@ function openBuildingPanel(building) {
   let specStr = '';
   if (building.type === 'THORN') {
     const lv = (building.level || 1) - 1;
-    const thornBoostLv = G.globalUpgrades.THORN_BOOST;
+    const thornBoostLv = G.globalUpgrades.TOWER_BOOST;
     const baseDmg = THORN_STATS.damage[lv];
     const bonusDmg = Math.round(baseDmg * thornBoostLv * 0.03);
     const dmgStr = bonusDmg > 0 ? `${baseDmg}+${bonusDmg}` : `${baseDmg}`;
@@ -2876,7 +2874,7 @@ function openBuildingPanel(building) {
     specStr = `공격력: ${dmgStr} | 사거리: ${THORN_STATS.range[lv]}타일 | 속도: ${rateStr}/s`;
   } else if (building.type === 'SPORE') {
     const lv = (building.level || 1) - 1;
-    const sporeBoostLv = G.globalUpgrades.SPORE_BOOST;
+    const sporeBoostLv = G.globalUpgrades.TOWER_BOOST;
     const baseDmg = SPORE_STATS.damage[lv];
     const bonusDmg = Math.round(baseDmg * sporeBoostLv * 0.03);
     const dmgStr = bonusDmg > 0 ? `${baseDmg}+${bonusDmg}` : `${baseDmg}`;
@@ -2898,7 +2896,11 @@ function openBuildingPanel(building) {
     specStr = `Lv.${building.level} | 생산량: ${amtStr} | 생산 간격: ${RESOURCE_STATS.interval}s`;
   } else if (building.type === 'BALLISTA') {
     const lv = (building.level || 1) - 1;
-    specStr = `공격력: ${BALLISTA_STATS.damage[lv]} | 사거리: ${BALLISTA_STATS.range[lv]}타일 | 속도: ${BALLISTA_STATS.fireRate[lv]}/s | 원거리 우선`;
+    const balBoostLv = G.globalUpgrades.TOWER_BOOST;
+    const balBaseDmg = BALLISTA_STATS.damage[lv];
+    const balBonusDmg = Math.round(balBaseDmg * balBoostLv * 0.03);
+    const balDmgStr = balBonusDmg > 0 ? `${balBaseDmg}+${balBonusDmg}` : `${balBaseDmg}`;
+    specStr = `공격력: ${balDmgStr} | 사거리: ${BALLISTA_STATS.range[lv]}타일 | 속도: ${BALLISTA_STATS.fireRate[lv]}/s | 원거리 우선`;
   } else if (building.type === 'NEST') {
     specStr = `거점 건물 — 파괴 시 게임 오버`;
   }
@@ -2952,11 +2954,11 @@ function openBuildingPanel(building) {
     bpActions.appendChild(secHeader);
 
     // 방벽 업그레이드 묶음 (방어력 + 강화)를 한 줄에 표시
-    const WALL_UPG_IDS = ['WALL_DEFENSE', 'WALL_FORTIFY'];
+    const STRUCTURE_UPG_IDS = ['STRUCTURE_DEFENSE', 'STRUCTURE_FORTIFY'];
 
     for (const upg of GLOBAL_UPGRADES) {
       // 방벽 업그레이드는 아래에서 묶어서 표시
-      if (WALL_UPG_IDS.includes(upg.id)) continue;
+      if (STRUCTURE_UPG_IDS.includes(upg.id)) continue;
 
       const curLv = G.globalUpgrades[upg.id];
       const btn = document.createElement('button');
@@ -2997,7 +2999,7 @@ function openBuildingPanel(building) {
     const wallRow = document.createElement('div');
     wallRow.style.cssText = 'display:flex;gap:6px;width:100%';
 
-    for (const uid of WALL_UPG_IDS) {
+    for (const uid of STRUCTURE_UPG_IDS) {
       const upg = GLOBAL_UPGRADES.find(u => u.id === uid);
       if (!upg) continue;
       const curLv = G.globalUpgrades[upg.id];
@@ -3021,7 +3023,7 @@ function openBuildingPanel(building) {
           if (G.resource < c) { showStatus('자원 부족'); return; }
           G.resource -= c;
           G.globalUpgrades[upg.id]++;
-          if (upg.id === 'WALL_FORTIFY') recalcWallHp();
+          if (upg.id === 'STRUCTURE_FORTIFY') recalcStructureHp();
           updateHUD();
           openBuildingPanel(building);
         });
@@ -3131,7 +3133,7 @@ const BUILD_GROUPS = Object.freeze([
   [
     { key: 'THORN',    label: '가시촉수' },
     { key: 'SPORE',    label: '산성포자' },
-    { key: 'BALLISTA', label: '발리스타' },
+    { key: 'BALLISTA', label: '외골격가시' },
   ],
 ]);
 
@@ -3491,11 +3493,11 @@ function openNestUpgradePopup(building) {
   nestPopup.appendChild(secHeader);
 
   // 방벽 업그레이드 묶음 ID
-  const WALL_UPG_IDS = ['WALL_DEFENSE', 'WALL_FORTIFY'];
+  const STRUCTURE_UPG_IDS = ['STRUCTURE_DEFENSE', 'STRUCTURE_FORTIFY'];
 
   // 일반 글로벌 업그레이드
   for (const upg of GLOBAL_UPGRADES) {
-    if (WALL_UPG_IDS.includes(upg.id)) continue;
+    if (STRUCTURE_UPG_IDS.includes(upg.id)) continue;
     nestPopup.appendChild(createNestUpgBtn(upg, building));
   }
 
@@ -3505,7 +3507,7 @@ function openNestUpgradePopup(building) {
   wallSec.textContent = '── 방벽 업그레이드 ──';
   nestPopup.appendChild(wallSec);
 
-  for (const uid of WALL_UPG_IDS) {
+  for (const uid of STRUCTURE_UPG_IDS) {
     const upg = GLOBAL_UPGRADES.find(u => u.id === uid);
     if (upg) nestPopup.appendChild(createNestUpgBtn(upg, building));
   }
