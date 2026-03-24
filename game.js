@@ -1681,6 +1681,19 @@ function renderBuildings() {
   }
 }
 
+/**
+ * 건물 타입을 미니 캔버스(size×size)로 그려 반환한다.
+ * 타일과 동일한 drawBuildingShape를 사용하므로 외형이 완전히 일치한다.
+ */
+function makeBuildingIconCanvas(type, color, size) {
+  const mc  = document.createElement('canvas');
+  mc.width  = size;
+  mc.height = size;
+  const mc2 = mc.getContext('2d');
+  drawBuildingShape(mc2, type, 0, 0, color, size, size, 1, 0);
+  return mc;
+}
+
 function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimAngle) {
   // renderW/renderH: 건물 전체 렌더 크기 (NEST 2×2는 TILE_SIZE*2)
   renderW = renderW || TILE_SIZE;
@@ -1806,9 +1819,9 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimA
     }
     case 'THORN': {
       // 가시 촉수: 적갈색 4각별 (플러스+별 혼합 형태)
-      ctx.fillStyle = color; // #8B2500 적갈색
+      ctx.fillStyle = color;
       ctx.beginPath();
-      const starPts = 8; // 꼭짓점 수 (4뾰족+4오목 = 4각별)
+      const starPts = 8;
       const outerR  = h * 0.88;
       const innerR  = h * 0.32;
       for (let i = 0; i < starPts; i++) {
@@ -1819,7 +1832,6 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimA
       }
       ctx.closePath();
       ctx.fill();
-      // 중앙 작은 원 (강조)
       ctx.fillStyle = '#c04010';
       ctx.beginPath();
       ctx.arc(cx, cy, h * 0.18, 0, Math.PI * 2);
@@ -1850,19 +1862,11 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimA
       break;
     }
     case 'RESOURCE': {
-      // 자원건물: 다이아몬드
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - h);
-      ctx.lineTo(cx + h, cy);
-      ctx.lineTo(cx, cy + h);
-      ctx.lineTo(cx - h, cy);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#ffe060';
-      ctx.beginPath();
-      ctx.arc(cx, cy, h * 0.35, 0, Math.PI * 2);
-      ctx.fill();
+      // 자원건물: 건설 아이콘과 동일하게 💎 이모지 표시
+      ctx.font = `${Math.round(h * 1.6)}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('💎', cx, cy + 1);
       break;
     }
     case 'BALLISTA': {
@@ -3104,7 +3108,12 @@ function openBuildingPanel(building) {
 
   const def = BUILDING_DEFS[building.type];
 
-  bpIcon.textContent = def.icon;
+  if (building.type === 'THORN') {
+    bpIcon.textContent = '';
+    bpIcon.appendChild(makeBuildingIconCanvas('THORN', def.color, 24));
+  } else {
+    bpIcon.textContent = def.icon;
+  }
   bpName.textContent = def.name;
 
   // 상태 문자열
@@ -3492,7 +3501,18 @@ function openRadialMenu(clientX, clientY, col, row) {
 
     const el = document.createElement('div');
     el.className = 'radial-item';
-    el.innerHTML = `<span class="ri-icon">${def.icon}</span><span class="ri-cost">${def.cost}</span>`;
+    if (key === 'THORN') {
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'ri-icon';
+      iconSpan.appendChild(makeBuildingIconCanvas('THORN', def.color, 28));
+      const costSpan = document.createElement('span');
+      costSpan.className = 'ri-cost';
+      costSpan.textContent = def.cost;
+      el.appendChild(iconSpan);
+      el.appendChild(costSpan);
+    } else {
+      el.innerHTML = `<span class="ri-icon">${def.icon}</span><span class="ri-cost">${def.cost}</span>`;
+    }
     el.style.left = ix + 'px';
     el.style.top  = iy + 'px';
 
