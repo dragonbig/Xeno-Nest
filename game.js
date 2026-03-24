@@ -57,7 +57,7 @@ const BUILDING_DEFS = Object.freeze({
               upgradeTime: [5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 35, 38, 41, 44, 47, 50, 53, 57, 61, 65, 70, 75],
               upgradeCost: [30, 50, 80, 150, 200, 300, 500, 800, 1300, 2000, 3000, 4500, 6500, 9000, 13000, 18000, 25000, 35000, 50000, 70000, 100000, 140000, 200000, 280000, 400000, 560000, 800000, 1100000, 1600000, null],
               hpPerLevel: [200, 260, 340, 440, 570, 740, 960, 1250, 1625, 2100, 2730, 3550, 4620, 6000, 7800, 10140, 13200, 17160, 22300, 29000, 37700, 49000, 63700, 82800, 107600, 139900, 181800, 236300, 307200, 399400] },
-  THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '❇️', color: '#8B2500', hpMax: 120,  armorType: 'STRUCTURE',
+  THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '🌵', color: '#8B2500', hpMax: 120,  armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
   SPORE:    { name: '산성 포자',  cost: 70,  buildTime: 4,  tile: TILE.SPORE,    icon: '🟢', color: '#207830', hpMax: 100,  armorType: 'STRUCTURE',
               upgradeTime: [10, 11, 12, 13, 14], upgradeCost: [150, 500, 1500, 3000, null] },
@@ -663,6 +663,9 @@ function createBuilding(type, col, row) {
   }
   if (type === 'THORN' || type === 'SPORE' || type === 'BALLISTA') {
     G.towerTimers[id] = 0;
+  }
+  if (type === 'BALLISTA') {
+    building.aimAngle = -Math.PI / 2; // 기본: 위쪽
   }
   if (type === 'REPAIR') {
     G.repairBuildingTimers[id] = 0;
@@ -1593,7 +1596,7 @@ function renderBuildings() {
     if (!b.built) {
       // 건설 중: 반투명 + 진행 바 (녹색)
       ctx.globalAlpha = 0.5;
-      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH, b.level);
+      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH, b.level, b.aimAngle);
       ctx.globalAlpha = 1.0;
 
       const progress = 1 - b.buildTimer / def.buildTime;
@@ -1606,7 +1609,7 @@ function renderBuildings() {
       ctx.fillStyle = '#60e060'; // 건설: 녹색
       ctx.fillRect(bx, by, barW * progress, barH);
     } else {
-      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH, b.level);
+      drawBuildingShape(ctx, b.type, x, y, b.color, renderW, renderH, b.level, b.aimAngle);
 
       // HP 바 (건물 최상단, NEST만 항상 표시. 나머지는 피해 입었을 때만)
       if (b.type === 'NEST' || b.hp < b.hpMax) {
@@ -1678,7 +1681,7 @@ function renderBuildings() {
   }
 }
 
-function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level) {
+function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimAngle) {
   // renderW/renderH: 건물 전체 렌더 크기 (NEST 2×2는 TILE_SIZE*2)
   renderW = renderW || TILE_SIZE;
   renderH = renderH || TILE_SIZE;
@@ -1802,24 +1805,13 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level) {
       break;
     }
     case 'THORN': {
-      // 가시 촉수: 중앙 마름모 + 4방향 삼각형 돌기
-      ctx.beginPath();
-      ctx.moveTo(cx,         cy - h * 0.5);
-      ctx.lineTo(cx + h * 0.5, cy);
-      ctx.lineTo(cx,         cy + h * 0.5);
-      ctx.lineTo(cx - h * 0.5, cy);
-      ctx.closePath();
-      ctx.fill();
-      // 4방향 가시 돌기
-      const thornDirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-      for (const [nx, ny] of thornDirs) {
-        ctx.beginPath();
-        ctx.moveTo(cx + nx * h * 0.5, cy + ny * h * 0.5);
-        ctx.lineTo(cx + nx * h - ny * h * 0.3, cy + ny * h + nx * h * 0.3);
-        ctx.lineTo(cx + nx * h + ny * h * 0.3, cy + ny * h - nx * h * 0.3);
-        ctx.closePath();
-        ctx.fill();
-      }
+      // 가시 촉수: 적갈색 배경 + 🌵 이모지
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 2, y + 2, renderW - 4, renderH - 4);
+      ctx.font = `${Math.round(h * 1.4)}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🌵', cx, cy + 1);
       break;
     }
     case 'SPORE': {
@@ -1862,42 +1854,18 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level) {
       break;
     }
     case 'BALLISTA': {
-      // 발리스타: 진한 갈색 배경 + 포신(수평 막대) + 양쪽 날개(삼각형)
-      // 레벨이 오를수록 색상이 밝아진다
-      const brightFactor = 1 + (level - 1) * 0.12;
-      const baseColor = color; // '#704020'
-
-      // 배경 직사각형
-      ctx.fillStyle = baseColor;
-      ctx.fillRect(x + 6, y + 8, renderW - 12, renderH - 16);
-
-      // 포신 (수평 막대, 중앙)
-      const barrelColor = `rgba(${Math.min(255, Math.round(0x90 * brightFactor))}, ${Math.min(255, Math.round(0x50 * brightFactor))}, ${Math.min(255, Math.round(0x10 * brightFactor))}, 1)`;
-      ctx.fillStyle = barrelColor;
-      ctx.fillRect(x + 4, cy - h * 0.14, renderW - 8, h * 0.28);
-
-      // 왼쪽 날개 (삼각형)
-      ctx.fillStyle = barrelColor;
-      ctx.beginPath();
-      ctx.moveTo(x + 6,          cy);
-      ctx.lineTo(x + 6 + h * 0.5, cy - h * 0.45);
-      ctx.lineTo(x + 6 + h * 0.5, cy + h * 0.45);
-      ctx.closePath();
-      ctx.fill();
-
-      // 오른쪽 날개 (삼각형, 대칭)
-      ctx.beginPath();
-      ctx.moveTo(x + renderW - 6,            cy);
-      ctx.lineTo(x + renderW - 6 - h * 0.5,  cy - h * 0.45);
-      ctx.lineTo(x + renderW - 6 - h * 0.5,  cy + h * 0.45);
-      ctx.closePath();
-      ctx.fill();
-
-      // 중앙 볼트 (원형 강조)
-      ctx.fillStyle = `rgba(255, 200, 80, ${0.5 + (level - 1) * 0.1})`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, h * 0.18, 0, Math.PI * 2);
-      ctx.fill();
+      // 외골격 가시 타워: 배경 + 🏹 이모지를 공격 방향으로 회전
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 2, y + 2, renderW - 4, renderH - 4);
+      ctx.save();
+      ctx.translate(cx, cy);
+      // 🏹 기본 방향이 오른쪽(0°)이므로, aimAngle 그대로 적용
+      ctx.rotate(aimAngle !== undefined ? aimAngle : -Math.PI / 2);
+      ctx.font = `${Math.round(h * 1.5)}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🏹', 0, 0);
+      ctx.restore();
       break;
     }
   }
@@ -2764,6 +2732,7 @@ function updateTowers(dt) {
       const ballistaDmg  = Math.round(BALLISTA_STATS.damage[lv] * (1 + towerBoostLv * 0.03));
       const ballistaRate = BALLISTA_STATS.fireRate[lv] * (1 + towerBoostLv * 0.02);
       G.towerTimers[b.id] = 1 / ballistaRate;
+      b.aimAngle = Math.atan2(target.y - bpx.y, target.x - bpx.x);
       fireProjectile(b, target, bpx, ballistaDmg, BALLISTA_STATS.attackType);
       continue;
     }
