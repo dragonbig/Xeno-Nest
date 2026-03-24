@@ -580,7 +580,7 @@ function initGame() {
       STRUCTURE_FORTIFY: 0,
     },
     paused:        false,
-    adBuff:        { active: false, timer: 0 },
+    adBuff:        { active: false, timer: 0, cooldown: 0 },
     _nestPopupOpen: false,
     _radialOpen:   false,
     _radialCol:    0,
@@ -3644,22 +3644,36 @@ const adBuffBtn = document.getElementById('ad-buff-btn');
 
 /** 광고 버프 타이머 업데이트 — 매 프레임 호출 */
 function updateAdBuff(dt) {
-  if (!G.adBuff.active) return;
-  G.adBuff.timer -= dt;
-  if (G.adBuff.timer <= 0) {
-    G.adBuff.active = false;
-    G.adBuff.timer  = 0;
-    adBuffBtn.classList.remove('active');
-    adBuffBtn.textContent = 'AD';
-    showStatus('자원 2배 버프가 종료되었습니다');
-  } else {
-    adBuffBtn.textContent = Math.ceil(G.adBuff.timer) + 's';
+  if (G.adBuff.active) {
+    G.adBuff.timer -= dt;
+    if (G.adBuff.timer <= 0) {
+      G.adBuff.active   = false;
+      G.adBuff.timer    = 0;
+      G.adBuff.cooldown = 120; // 2분 쿨타임 시작
+      adBuffBtn.classList.remove('active');
+      adBuffBtn.classList.add('cooldown');
+      showStatus('자원 2배 버프가 종료되었습니다');
+    } else {
+      adBuffBtn.textContent = Math.ceil(G.adBuff.timer) + 's';
+    }
+  } else if (G.adBuff.cooldown > 0) {
+    G.adBuff.cooldown -= dt;
+    if (G.adBuff.cooldown <= 0) {
+      G.adBuff.cooldown = 0;
+      adBuffBtn.classList.remove('cooldown');
+      adBuffBtn.textContent = 'AD';
+      showStatus('광고 시청 가능!');
+    } else {
+      const mm = Math.floor(G.adBuff.cooldown / 60);
+      const ss = Math.ceil(G.adBuff.cooldown % 60);
+      adBuffBtn.textContent = mm > 0 ? `${mm}:${ss.toString().padStart(2,'0')}` : `${ss}s`;
+    }
   }
 }
 
 adBuffBtn.addEventListener('click', () => {
   if (G.state !== STATE.COUNTDOWN && G.state !== STATE.WAVE) return;
-  if (G.adBuff.active) return;
+  if (G.adBuff.active || G.adBuff.cooldown > 0) return;
   // 광고 시뮬레이션 (confirm 대화상자)
   const ok = confirm('광고를 시청하시겠습니까?\n60초 동안 자원 생산량이 2배가 됩니다.');
   if (!ok) return;
