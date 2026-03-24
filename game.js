@@ -969,6 +969,7 @@ canvas.addEventListener('mousedown', e => {
 
 canvas.addEventListener('mousemove', e => {
   if (!G.drag.active) return;
+  if (G._radialOpen || G._nestPopupOpen || G.selectedBuildingId !== null) return;
   const dx = e.clientX - G.drag.startX;
   const dy = e.clientY - G.drag.startY;
   if (Math.hypot(dx, dy) > 5) {
@@ -1003,6 +1004,7 @@ canvas.addEventListener('touchstart', e => {
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   if (!G.drag.active) return;
+  if (G._radialOpen || G._nestPopupOpen || G.selectedBuildingId !== null) return;
   const t  = e.touches[0];
   const dx = t.clientX - G.drag.startX;
   const dy = t.clientY - G.drag.startY;
