@@ -228,14 +228,14 @@ const ENEMY_DEFS = Object.freeze({
     name:'마법사 모험가', hpMax:260, speed:65, damage:60, reward:50,
     attackDmg:40, attackRate:1.0, radius:11, slotCost:2,
     attackType:'MAGICAL', armorType:'HERO',
-    ranged:true, rangedTiles:3.0, projSpeed:150,
+    ranged:true, rangedTiles:2.0, projSpeed:150,
     color:'#8040c0', outlineColor:'#401060',
   },
   ARCHER: {
     name:'궁수', hpMax:65, speed:80, damage:20, reward:20,
     attackDmg:15, attackRate:1.2, radius:10, slotCost:1,
     attackType:'PHYSICAL', armorType:'PHYSICAL',
-    ranged:true, rangedTiles:3.0, projSpeed:200,
+    ranged:true, rangedTiles:2.0, projSpeed:200,
     color:'#60a040', outlineColor:'#305020',
   },
 });
