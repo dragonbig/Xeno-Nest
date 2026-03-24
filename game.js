@@ -584,11 +584,10 @@ function initGame() {
     _lastClientX:  0,
     _lastClientY:  0,
     prevTime:      null,
-    // 카메라 초기 위치: COLS=20, ROWS=28 기준 기지 중심(col 10, row 8) 부근
-    // x=480은 col10의 중심 픽셀, canvasW는 리사이즈 전이므로 상수 절반값(480px) 사용
+    // 카메라 초기 위치: zoom=1.0에서 맵 전체(960×1344)가 논리 캔버스와 일치하므로 (0,0) 고정
     camera: {
-      x: (NEST_ZONE.colMin + 1) * TILE_SIZE - 480 / 2,
-      y: 180,
+      x: 0,
+      y: 0,
       zoom: 1.0
     },
     drag:   { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0, moved: false },
@@ -3585,6 +3584,7 @@ pauseBtn.addEventListener('click', (e) => {
 // 최초 초기화
 initGame();
 resizeCanvas();
+clampCamera();
 buildBuildPanel();
 
 // 시작 오버레이 표시
