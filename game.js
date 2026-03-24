@@ -1860,7 +1860,8 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimA
       ctx.save();
       ctx.translate(cx, cy);
       // 🏹 기본 방향이 오른쪽(0°)이므로, aimAngle 그대로 적용
-      ctx.rotate(aimAngle !== undefined ? aimAngle : -Math.PI / 2);
+      // 🏹 이모지 화살촉이 기본 우상단(-45°) 방향 → +45° 보정으로 aimAngle 방향에 정렬
+      ctx.rotate((aimAngle !== undefined ? aimAngle : -Math.PI / 2) + Math.PI / 4);
       ctx.font = `${Math.round(h * 1.5)}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
