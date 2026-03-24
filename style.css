@@ -675,15 +675,27 @@ html, body {
 
 /* ── 모바일 세로(Portrait) 최적화 ── */
 @media (orientation: portrait) {
+  /* HUD 2줄 배치: 아이템이 자동으로 줄바꿈되도록 flex-wrap 허용 */
   #hud-top {
-    padding: 4px 8px;
+    flex-wrap: wrap;
+    padding: 3px 6px;
+    gap: 2px 6px;
     font-size: 11px;
+  }
+  .hud-item {
+    flex: 1 0 auto;
+    min-width: 55px;
   }
   .hud-label {
     font-size: 9px;
   }
   .hud-value {
     font-size: 12px;
+  }
+  /* 웨이브 텍스트는 길어질 수 있으므로 별도로 여유 확보 */
+  #hud-wave .hud-value {
+    min-width: 60px;
+    font-size: 11px;
   }
   #building-panel {
     max-height: 40vh;
@@ -701,10 +713,21 @@ html, body {
     width: 40px;
     height: 40px;
   }
-  #ad-buff-btn,
+  /* 하단 버튼 위치 일관화 — build-trigger-bar와 겹치지 않도록 정렬 */
+  #ad-buff-btn {
+    width: 38px;
+    height: 38px;
+    bottom: 10px;
+    left: 10px;
+  }
   #pause-btn {
     width: 38px;
     height: 38px;
+    bottom: 10px;
+    left: 60px;
+  }
+  #build-trigger-bar {
+    bottom: 10px;
   }
   #nest-popup {
     min-width: 170px;

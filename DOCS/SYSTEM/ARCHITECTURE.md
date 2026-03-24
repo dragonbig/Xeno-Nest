@@ -2,7 +2,7 @@
 
 > **카테고리:** SYSTEM
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23 (Phase 7: 건물 Radial Menu, 버튼 위치 재배치, 모바일 Portrait 최적화, ARCHER)
+> **최종 갱신:** 2026-03-24 (Portrait 맵 재설계: 맵 비율 0.71:1, resizeCanvas portrait 분기, positionNestPopup 좌표 계산 개선, resize 핸들러 positionNestPopup 재호출 추가)
 > **관련 기능:** 게임 루프, 상태 관리, 렌더링 파이프라인
 
 ## 개요
@@ -70,6 +70,7 @@ index.html
         ├── hud-top            (자원 / 위협 단계 / 남은 시간 / 둥지 HP)
         ├── ad-buff-btn        (좌하단 광고 버프 버튼, left:12px bottom:12px)
         ├── zoom-controls      (우상단 줌 버튼, right:12px top:50px)
+        ├── nest-popup         (NEST 클릭 시 업그레이드/정보 팝업)
         └── overlay            (시작 화면 / 게임 오버)
 
 > **Phase 7 변경 — UI 버튼 위치 재배치:**
@@ -82,6 +83,15 @@ index.html
 >
 > **Phase 7 변경 — 모바일 세로(Portrait) 최적화:**
 > `@media (orientation: portrait)` 미디어 쿼리를 통해 세로 화면에서 HUD 패딩/폰트 축소, building-panel 높이 제한(40vh + overflow-y:auto), 버튼 크기 축소(줌 40px, 광고 38px, 건설 min-height 40px)가 적용된다.
+>
+> **Portrait 재설계 변경 — resizeCanvas portrait 분기:**
+> `resizeCanvas()`에 `isPortrait` 분기가 추가되었다. portrait일 때 `bottomUI=72px`를 가용 높이에서 추가 제외하여 하단 버튼 영역이 canvas와 겹치지 않는다. HUD 높이도 `offsetHeight`로 동적으로 읽어 2줄 배치 시 자동 반영된다.
+>
+> **Portrait 재설계 변경 — positionNestPopup 좌표 계산:**
+> `positionNestPopup()`이 `canvas.getBoundingClientRect()`로 canvas의 실제 CSS 위치를 읽어 `canvasOffsetX/Y`를 계산한다. landscape에서 canvas가 화면 중앙에 정렬될 때 발생하던 팝업 위치 오류가 수정되었다.
+>
+> **Portrait 재설계 변경 — resize 핸들러:**
+> `window.addEventListener('resize', ...)` 핸들러에서 `G._nestPopupOpen`이 `true`이면 `positionNestPopup()`을 재호출한다. 화면 회전 시 팝업이 잘못된 위치에 남는 문제가 수정되었다.
 ```
 
 ---

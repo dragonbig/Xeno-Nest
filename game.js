@@ -17,8 +17,8 @@
 // 매직 넘버를 모두 여기에 모아 유지보수성을 높인다.
 
 const TILE_SIZE  = 48;   // px, 그리드 한 칸의 크기
-const COLS       = 30;   // 열 수
-const ROWS       = 24;   // 행 수
+const COLS       = 20;   // 열 수
+const ROWS       = 28;   // 행 수
 
 // 게임 상태 머신 값
 const STATE = Object.freeze({
@@ -269,8 +269,8 @@ const COUNTDOWN_DURATION = 20;  // 초
 // NEST_BUILD_TIME는 BUILDING_DEFS.NEST.buildTime으로 관리한다 (5초)
 const DT_MAX             = 0.1; // 초, 탭 전환 후 큰 dt 클램핑
 
-// 핵심 둥지 배치 가능 영역 — 기지 내부 상단 (2×2가 들어가도록 여유 확보)
-const NEST_ZONE = Object.freeze({ colMin: 14, colMax: 15, rowMin: 3, rowMax: 4 });
+// 핵심 둥지 배치 가능 영역 — COLS=20 기준 중심(col 9~10), 상단부(row 3~4)
+const NEST_ZONE = Object.freeze({ colMin: 9, colMax: 10, rowMin: 3, rowMax: 4 });
 
 // NEST 레벨별 최대 건물 배치 수 (NEST 제외)
 const NEST_BUILD_CAP = Object.freeze([5, 10, 25]); // Lv.1=5, Lv.2=10, Lv.3=25
@@ -279,8 +279,8 @@ const NEST_BUILD_CAP = Object.freeze([5, 10, 25]); // Lv.1=5, Lv.2=10, Lv.3=25
 const NEST_RESOURCE_INTERVAL = 8;  // 초마다 생산
 const NEST_RESOURCE_AMOUNT = Object.freeze([5, 10, 20]); // Lv.1=5, Lv.2=10, Lv.3=20
 
-// 기지 입구 좌표 — WALL 제거 시 ENTRANCE 복원용
-const BASE_ENTRANCE = Object.freeze([{ col: 14, row: 13 }, { col: 15, row: 13 }]);
+// 기지 입구 좌표 — WALL 제거 시 ENTRANCE 복원용 (COLS=20 기준 중심 col 9~10)
+const BASE_ENTRANCE = Object.freeze([{ col: 9, row: 18 }, { col: 10, row: 18 }]);
 
 // 초기 자원
 const INITIAL_RESOURCE = 200;
@@ -380,24 +380,29 @@ function createGrid() {
   for (let c = 0; c < COLS; c++) { grid[0][c] = TILE.BLOCKED; grid[ROWS - 1][c] = TILE.BLOCKED; }
   for (let r = 0; r < ROWS; r++) { grid[r][0] = TILE.BLOCKED; grid[r][COLS - 1] = TILE.BLOCKED; }
 
-  // 내부 기지 외벽 — 행별 좌측/우측 경계 정의
-  // 규칙: 인접 행 간 열 번호 차이 ≤ 1, 차이 발생 시 중간 타일도 채움
-  // 입구: row 13, col 14~15 (하단 중앙)
+  // 내부 기지 외벽 — 행별 좌측/우측 경계 정의 (COLS=20 기준, 중심 col 9~10)
+  // 규칙: 인접 행 간 열 번호 차이 ≤ 2, 차이 발생 시 중간 타일도 채움
+  // 입구: row 18, col 9~10 (하단 중앙)
+  // row 19~27은 적 진입로 — 기지 외벽 없음
   const wallProfile = [
-    // [row, leftCol, rightCol] — 좌벽과 우벽의 열 번호
-    [1,  13, 16],
-    [2,  11, 18],
-    [3,  9,  20],
-    [4,  8,  21],
-    [5,  7,  22],
-    [6,  7,  22],
-    [7,  6,  23],
-    [8,  6,  23],
-    [9,  7,  22],
-    [10, 7,  22],
-    [11, 8,  21],
-    [12, 9,  20],
-    [13, 11, 18],  // 입구 row — col 14,15는 ENTRANCE
+    // [row, leftCol, rightCol]
+    [2,  7, 12],
+    [3,  5, 14],
+    [4,  4, 15],
+    [5,  3, 16],
+    [6,  3, 16],
+    [7,  3, 16],
+    [8,  3, 16],
+    [9,  3, 16],
+    [10, 3, 16],
+    [11, 3, 16],
+    [12, 3, 16],
+    [13, 3, 16],
+    [14, 4, 15],
+    [15, 5, 14],
+    [16, 6, 13],
+    [17, 7, 12],
+    [18, 8, 11],  // 입구 row — col 9,10은 ENTRANCE
   ];
 
   for (let i = 0; i < wallProfile.length; i++) {
@@ -425,18 +430,16 @@ function createGrid() {
     }
   }
 
-  // 상단 가로벽 연결 (row 1: col 13~16, row 2: col 11~18 이미 좌우벽)
-  // row 1 상단 수평벽
-  for (let c = 13; c <= 16; c++) grid[1][c] = TILE.BLOCKED;
-  // row 2 상단 수평벽
-  for (let c = 11; c <= 18; c++) grid[2][c] = TILE.BLOCKED;
-  // row 13 하단벽 (입구 col 14,15 제외)
-  for (let c = 11; c <= 13; c++) grid[13][c] = TILE.BLOCKED;
-  for (let c = 16; c <= 18; c++) grid[13][c] = TILE.BLOCKED;
+  // 상단 수평벽: row 2 (col 7~12) — wallProfile row 2가 좌우벽이므로 사이 채움
+  for (let c = 7; c <= 12; c++) grid[2][c] = TILE.BLOCKED;
+  // row 18 하단벽 (입구 col 9,10 제외) — wallProfile 루프에서 left=8, right=11은 이미 채워지나
+  // ENTRANCE 덮어쓰기를 방지하기 위해 명시적으로 재확인
+  grid[18][8]  = TILE.BLOCKED;
+  grid[18][11] = TILE.BLOCKED;
 
   // 기지 입구 — 2타일 폭 (WALL 2개로 봉쇄 가능)
-  grid[13][14] = TILE.ENTRANCE;
-  grid[13][15] = TILE.ENTRANCE;
+  grid[18][9]  = TILE.ENTRANCE;
+  grid[18][10] = TILE.ENTRANCE;
 
   // 적 스폰 지점 — SPAWN 타일로 표시 (ENTRANCE와 별개)
   for (const e of ENTRANCES) {
@@ -575,11 +578,11 @@ function initGame() {
     _lastClientX:  0,
     _lastClientY:  0,
     prevTime:      null,
-    // 카메라 초기 위치: 기지 중앙(col=15, row=7) 부근
-    // 카메라 초기 위치: NEST_ZONE 중앙이 화면 중앙에 오도록
+    // 카메라 초기 위치: COLS=20, ROWS=28 기준 기지 중심(col 10, row 8) 부근
+    // x=480은 col10의 중심 픽셀, canvasW는 리사이즈 전이므로 상수 절반값(480px) 사용
     camera: {
-      x: (NEST_ZONE.colMin + 1) * TILE_SIZE - (COLS * TILE_SIZE) / 2,
-      y: (NEST_ZONE.rowMin + 1) * TILE_SIZE - (ROWS * TILE_SIZE) / 2,
+      x: (NEST_ZONE.colMin + 1) * TILE_SIZE - 480 / 2,
+      y: 180,
       zoom: 1.0
     },
     drag:   { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0, moved: false },
@@ -886,8 +889,15 @@ const HUD_TOP_H    = 40;
 const BUILD_PANEL_H = 0; // build-panel 숨김 상태이므로 높이 0
 
 function resizeCanvas() {
+  // HUD 실제 높이를 동적으로 읽는다 — portrait에서 2줄 배치 시 높이가 달라진다
+  const hudH = document.getElementById('hud-top').offsetHeight || HUD_TOP_H;
+
+  // portrait에서 하단 버튼(트리거바/일시정지/광고버튼) 영역 72px 추가 확보
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const bottomUI  = isPortrait ? 72 : 0;
+
   const availW = window.innerWidth;
-  const availH = window.innerHeight - HUD_TOP_H - BUILD_PANEL_H;
+  const availH = window.innerHeight - hudH - BUILD_PANEL_H - bottomUI;
 
   // 그리드 전체 픽셀 크기
   const gridW = COLS * TILE_SIZE;
@@ -902,8 +912,8 @@ function resizeCanvas() {
   canvas.height = gridH;
   canvas.style.width  = displayW + 'px';
   canvas.style.height = displayH + 'px';
-  // canvas 위치: HUD 아래
-  canvas.style.marginTop = HUD_TOP_H + 'px';
+  // canvas 위치: HUD 실제 높이 아래에 배치
+  canvas.style.marginTop = hudH + 'px';
 
   terrainCanvas.width  = gridW;
   terrainCanvas.height = gridH;
@@ -3411,9 +3421,14 @@ function positionNestPopup(building) {
   const containerRect = container.getBoundingClientRect();
   const bc = getBuildingCenter(building);
 
-  // 월드 좌표 → 화면 좌표
-  const screenX = (bc.x - G.camera.x) * G.camera.zoom;
-  const screenY = (bc.y - G.camera.y) * G.camera.zoom;
+  // canvas의 실제 CSS 위치를 읽어 landscape 중앙 정렬 오프셋을 자동 반영
+  const canvas = document.getElementById('gameCanvas');
+  const canvasRect = canvas.getBoundingClientRect();
+  const canvasOffsetX = canvasRect.left - containerRect.left;
+  const canvasOffsetY = canvasRect.top  - containerRect.top;
+  const hudH = canvasOffsetY; // 클램핑 하한 계산에 재사용
+  const screenX = (bc.x - G.camera.x) * G.camera.zoom * G.canvasScale + canvasOffsetX;
+  const screenY = (bc.y - G.camera.y) * G.camera.zoom * G.canvasScale + canvasOffsetY;
 
   // 팝업을 둥지 오른쪽에 배치, 화면 밖이면 왼쪽으로
   const popupW = 220;
@@ -3421,8 +3436,11 @@ function positionNestPopup(building) {
   if (left + popupW > containerRect.width) {
     left = screenX - popupW - 20;
   }
+  // 팝업 높이는 실제 렌더 후 offsetHeight로 읽어야 정확하나,
+  // 팝업이 hidden 상태에서 호출되므로 최대 예상치(300px)로 클램핑
+  const popupH = nestPopup.offsetHeight || 300;
   let top = screenY - 60;
-  top = Math.max(50, Math.min(top, containerRect.height - 300));
+  top = Math.max(hudH + 5, Math.min(top, containerRect.height - popupH - 10));
 
   nestPopup.style.left = left + 'px';
   nestPopup.style.top  = top + 'px';
@@ -3540,6 +3558,11 @@ window.addEventListener('resize', () => {
   resizeCanvas();
   clampCamera();
   dirtyTerrain();
+  // 팝업이 열려 있으면 회전/리사이즈 후 위치 재조정
+  if (G._nestPopupOpen) {
+    const building = G.buildings.find(b => b.id === G.selectedBuildingId);
+    if (building) positionNestPopup(building);
+  }
 });
 
 // 일시정지 버튼
