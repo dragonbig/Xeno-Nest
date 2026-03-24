@@ -2910,7 +2910,7 @@ function updateResourceBuildings(dt) {
       G.resourceTimers[b.id] = (G.resourceTimers[b.id] || RESOURCE_STATS.interval) - dt;
       if (G.resourceTimers[b.id] <= 0) {
         const rbLv       = G.globalUpgrades.RESOURCE_BOOST;
-        const baseAmount = Math.round(RESOURCE_STATS.amount * (1 + (b.level - 1) * 0.3));
+        const baseAmount = Math.round(RESOURCE_STATS.amount * Math.pow(1.5, b.level - 1));
         let   amount     = Math.round(baseAmount * (1 + rbLv * 0.03));
         if (G.adBuff.active) amount *= 2;
         G.resource += amount;
@@ -3120,7 +3120,7 @@ function openBuildingPanel(building) {
     specStr = `Lv.${building.level} | HP: ${building.hpMax} | 최대 공격자: ${WALL_MAX_CAPACITY}슬롯${_defStr}`;
   } else if (building.type === 'RESOURCE') {
     const rbLv = G.globalUpgrades.RESOURCE_BOOST;
-    const baseAmt = Math.round(RESOURCE_STATS.amount * (1 + (building.level - 1) * 0.3));
+    const baseAmt = Math.round(RESOURCE_STATS.amount * Math.pow(1.5, building.level - 1));
     const bonusAmt = Math.round(baseAmt * rbLv * 0.03);
     const amtStr = bonusAmt > 0 ? `${baseAmt}+${bonusAmt}` : `${baseAmt}`;
     specStr = `Lv.${building.level} | 생산량: ${amtStr} | 생산 간격: ${RESOURCE_STATS.interval}s${_defStr}`;
