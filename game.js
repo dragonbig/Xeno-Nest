@@ -1285,14 +1285,6 @@ const elHP       = document.getElementById('val-hp');
 function updateHUD() {
   elResource.textContent = G.resource;
 
-  // 위협 단계 표시 (1~14단계, SPAWN_SCHEDULE 인덱스 기반)
-  if (G.state === STATE.WAVE) {
-    const threatLv = G.scheduleIdx + 1;
-    const alive    = G.enemies.filter(e => !e.dead).length;
-    elWave.textContent = `위협 ${threatLv}단계 (${alive}마리)`;
-  } else {
-    elWave.textContent = '-';
-  }
 
   if (G.state === STATE.COUNTDOWN) {
     elTimer.textContent = Math.ceil(G.countdown) + 's';

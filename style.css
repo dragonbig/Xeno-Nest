@@ -96,20 +96,21 @@ html, body {
 #threat-bar {
   position: absolute;
   top: 38px; /* hud-top 높이 바로 아래 */
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 10px;
+  padding: 3px 12px;
   background: rgba(5, 5, 20, 0.80);
-  border-bottom: 1px solid #1a1a3a;
+  border: 1px solid #1a1a3a;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
   z-index: 9;
   pointer-events: none;
   font-size: 11px;
   color: #a0a0c0;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .threat-label {
