@@ -54,9 +54,9 @@ const BUILDING_DEFS = Object.freeze({
               upgradeTime: [15, 20], upgradeCost: [1000, 5000, null],
               hpPerLevel: [500, 700, 950] },
   WALL:     { name: '성벽',       cost: 30,  buildTime: 3,  tile: TILE.WALL,     icon: '🟫', color: '#806040', hpMax: 200,  armorType: 'STRUCTURE',
-              upgradeTime: [5, 6, 7, 8, 9, 10, 12, 14, 16],
-              upgradeCost: [30, 50, 80, 150, 200, 300, 500, 800, 1300, null],
-              hpPerLevel: [200, 260, 340, 440, 570, 740, 960, 1250, 1625, 2100] },
+              upgradeTime: [5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 35, 38, 41, 44, 47, 50, 53, 57, 61, 65, 70, 75],
+              upgradeCost: [30, 50, 80, 150, 200, 300, 500, 800, 1300, 2000, 3000, 4500, 6500, 9000, 13000, 18000, 25000, 35000, 50000, 70000, 100000, 140000, 200000, 280000, 400000, 560000, 800000, 1100000, 1600000, null],
+              hpPerLevel: [200, 260, 340, 440, 570, 740, 960, 1250, 1625, 2100, 2730, 3550, 4620, 6000, 7800, 10140, 13200, 17160, 22300, 29000, 37700, 49000, 63700, 82800, 107600, 139900, 181800, 236300, 307200, 399400] },
   THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '🗡️', color: '#508030', hpMax: 120,  armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
   SPORE:    { name: '산성 포자',  cost: 70,  buildTime: 4,  tile: TILE.SPORE,    icon: '🟢', color: '#806030', hpMax: 100,  armorType: 'STRUCTURE',
@@ -274,17 +274,17 @@ const COUNTDOWN_DURATION = 20;  // 초
 const DT_MAX             = 0.1; // 초, 탭 전환 후 큰 dt 클램핑
 
 // 핵심 둥지 배치 가능 영역 — COLS=20 기준 중심(col 9~10), 상단부(row 3~4)
-const NEST_ZONE = Object.freeze({ colMin: 9, colMax: 10, rowMin: 3, rowMax: 4 });
+const NEST_ZONE = Object.freeze({ colMin: 9, colMax: 10, rowMin: 2, rowMax: 3 });
 
 // NEST 레벨별 최대 건물 배치 수 (NEST 제외)
-const NEST_BUILD_CAP = Object.freeze([10, 15, 30]); // Lv.1=10, Lv.2=15, Lv.3=30
+const NEST_BUILD_CAP = Object.freeze([10, 20, 40]); // Lv.1=10, Lv.2=20, Lv.3=40
 
 // NEST 자원 생산
 const NEST_RESOURCE_INTERVAL = 8;  // 초마다 생산
 const NEST_RESOURCE_AMOUNT = Object.freeze([5, 10, 20]); // Lv.1=5, Lv.2=10, Lv.3=20
 
 // 기지 입구 좌표 — WALL 제거 시 ENTRANCE 복원용 (COLS=20 기준 중심 col 9~10)
-const BASE_ENTRANCE = Object.freeze([{ col: 9, row: 18 }, { col: 10, row: 18 }]);
+const BASE_ENTRANCE = Object.freeze([{ col: 9, row: 17 }, { col: 10, row: 17 }]);
 
 // 초기 자원
 const INITIAL_RESOURCE = 200;
@@ -391,9 +391,10 @@ function createGrid() {
   // row 19~27은 적 진입로 — 기지 외벽 없음
   const wallProfile = [
     // [row, leftCol, rightCol]
-    [2,  7, 12],
-    [3,  5, 14],
-    [4,  4, 15],
+    [1,  7, 12],
+    [2,  5, 14],
+    [3,  4, 15],
+    [4,  3, 16],
     [5,  3, 16],
     [6,  3, 16],
     [7,  3, 16],
@@ -402,12 +403,11 @@ function createGrid() {
     [10, 3, 16],
     [11, 3, 16],
     [12, 3, 16],
-    [13, 3, 16],
-    [14, 4, 15],
-    [15, 5, 14],
-    [16, 6, 13],
-    [17, 7, 12],
-    [18, 8, 11],  // 입구 row — col 9,10은 ENTRANCE
+    [13, 4, 15],
+    [14, 5, 14],
+    [15, 6, 13],
+    [16, 7, 12],
+    [17, 8, 11],  // 입구 row — col 9,10은 ENTRANCE
   ];
 
   for (let i = 0; i < wallProfile.length; i++) {
@@ -441,16 +441,16 @@ function createGrid() {
     }
   }
 
-  // 상단 수평벽: row 2 (col 7~12) — wallProfile row 2가 좌우벽이므로 사이 채움
-  for (let c = 7; c <= 12; c++) grid[2][c] = TILE.BLOCKED;
-  // row 18 하단벽 (입구 col 9,10 제외) — wallProfile 루프에서 left=8, right=11은 이미 채워지나
+  // 상단 수평벽: row 1 (col 7~12) — wallProfile row 1이 좌우벽이므로 사이 채움
+  for (let c = 7; c <= 12; c++) grid[1][c] = TILE.BLOCKED;
+  // row 17 하단벽 (입구 col 9,10 제외) — wallProfile 루프에서 left=8, right=11은 이미 채워지나
   // ENTRANCE 덮어쓰기를 방지하기 위해 명시적으로 재확인
-  grid[18][8]  = TILE.BLOCKED;
-  grid[18][11] = TILE.BLOCKED;
+  grid[17][8]  = TILE.BLOCKED;
+  grid[17][11] = TILE.BLOCKED;
 
   // 기지 입구 — 2타일 폭 (WALL 2개로 봉쇄 가능)
-  grid[18][9]  = TILE.ENTRANCE;
-  grid[18][10] = TILE.ENTRANCE;
+  grid[17][9]  = TILE.ENTRANCE;
+  grid[17][10] = TILE.ENTRANCE;
 
   // 적 스폰 지점 — SPAWN 타일로 표시 (ENTRANCE와 별개)
   for (const e of ENTRANCES) {
@@ -744,7 +744,7 @@ function startUpgrade(building) {
   if (!LEVEL_BASED.includes(building.type)) return false;
 
   // 건물 유형별 최대 레벨
-  const maxLv = building.type === 'WALL' ? 10 : building.type === 'NEST' ? 3 : 5;
+  const maxLv = building.type === 'WALL' ? 30 : building.type === 'NEST' ? 3 : 5;
 
   if (building.level >= maxLv) { showStatus('최대 레벨입니다'); return false; }
 
@@ -766,7 +766,7 @@ function calcBatchUpgrade(selectedBuilding) {
   const { type, level } = selectedBuilding;
   const def = BUILDING_DEFS[type];
   if (!def || !def.upgradeCost) return { count: 0, totalCost: 0, targets: [] };
-  const maxLv = type === 'WALL' ? 10 : 5;
+  const maxLv = type === 'WALL' ? 30 : 5;
   if (level >= maxLv) return { count: 0, totalCost: 0, targets: [] };
   const costPerUnit = def.upgradeCost[level - 1];
   if (costPerUnit == null) return { count: 0, totalCost: 0, targets: [] };
@@ -1326,6 +1326,41 @@ function updateHUD() {
   } else {
     scaleEl.style.display = 'none';
   }
+
+  // 위협 공세 단계 바 업데이트
+  const threatBar = document.getElementById('threat-bar');
+  if (threatBar) {
+    if (G.state === STATE.WAVE) {
+      const s = SPAWN_SCHEDULE[G.scheduleIdx];
+      const threatLv = G.scheduleIdx + 1;
+      const totalPhases = SPAWN_SCHEDULE.length;
+      const pct = Math.round((threatLv / totalPhases) * 100);
+      const barColor = threatLv <= 4 ? '#40b060' : threatLv <= 8 ? '#e0a030' : '#e04040';
+      threatBar.innerHTML = `
+        <span class="threat-label">공세 ${threatLv}/${totalPhases}단계</span>
+        <div class="threat-progress"><div class="threat-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        <span class="threat-detail">${buildThreatDetail(s)}</span>
+      `;
+      threatBar.style.display = 'flex';
+    } else if (G.state === STATE.COUNTDOWN) {
+      threatBar.innerHTML = `<span class="threat-label">건설 준비 중 — ${Math.ceil(G.countdown)}초 후 공세 시작</span>`;
+      threatBar.style.display = 'flex';
+    } else {
+      threatBar.style.display = 'none';
+    }
+  }
+}
+
+function buildThreatDetail(s) {
+  const parts = [];
+  if (s.citizen  > 0) parts.push(`시민 ${s.citizen}`);
+  if (s.scout    > 0) parts.push(`정찰 ${s.scout}`);
+  if (s.fast     > 0) parts.push(`돌격 ${s.fast}`);
+  if (s.tanker   > 0) parts.push(`중장 ${s.tanker}`);
+  if (s.warrior  > 0) parts.push(`전사 ${s.warrior}`);
+  if (s.mage     > 0) parts.push(`마법사 ${s.mage}`);
+  if (s.archer   > 0) parts.push(`궁수 ${s.archer}`);
+  return parts.join(' · ');
 }
 
 
@@ -2842,7 +2877,7 @@ function openBuildingPanel(building) {
   bpName.textContent = def.name;
 
   // 상태 문자열
-  const maxLv = building.type === 'WALL' ? 10 : building.type === 'NEST' ? 3 : 5;
+  const maxLv = building.type === 'WALL' ? 30 : building.type === 'NEST' ? 3 : 5;
   const isLevelBased = ['THORN', 'SPORE', 'REPAIR', 'WALL', 'NEST', 'RESOURCE', 'BALLISTA'].includes(building.type);
 
   let statusStr = '';
@@ -2861,6 +2896,9 @@ function openBuildingPanel(building) {
   }
 
   // 유형별 스펙 — 기본값 + 보너스값 형태로 표시
+  const _defLv = G.globalUpgrades.STRUCTURE_DEFENSE;
+  const _defStr = _defLv > 0 ? ` | 피해감소: ${_defLv * 2}%` : '';
+
   let specStr = '';
   if (building.type === 'THORN') {
     const lv = (building.level || 1) - 1;
@@ -2871,7 +2909,7 @@ function openBuildingPanel(building) {
     const baseRate = THORN_STATS.fireRate[lv];
     const bonusRate = +(baseRate * thornBoostLv * 0.02).toFixed(2);
     const rateStr = bonusRate > 0 ? `${baseRate}+${bonusRate}` : `${baseRate}`;
-    specStr = `공격력: ${dmgStr} | 사거리: ${THORN_STATS.range[lv]}타일 | 속도: ${rateStr}/s`;
+    specStr = `공격력: ${dmgStr} | 사거리: ${THORN_STATS.range[lv]}타일 | 속도: ${rateStr}/s${_defStr}`;
   } else if (building.type === 'SPORE') {
     const lv = (building.level || 1) - 1;
     const sporeBoostLv = G.globalUpgrades.TOWER_BOOST;
@@ -2881,28 +2919,28 @@ function openBuildingPanel(building) {
     const baseSlowDur = SPORE_STATS.slowDuration;
     const bonusSlowDur = +(baseSlowDur * sporeBoostLv * 0.05).toFixed(1);
     const slowStr = bonusSlowDur > 0 ? `30%/${baseSlowDur}+${bonusSlowDur}s` : `30%/${baseSlowDur}s`;
-    specStr = `공격력: ${dmgStr} | 사거리: ${SPORE_STATS.range[lv]}타일 | 슬로우: ${slowStr}`;
+    specStr = `공격력: ${dmgStr} | 사거리: ${SPORE_STATS.range[lv]}타일 | 슬로우: ${slowStr}${_defStr}`;
   } else if (building.type === 'REPAIR') {
     const lv = (building.level || 1) - 1;
     const baseHeal = REPAIR_STATS.healPerSec[lv];
-    specStr = `범위: ${REPAIR_STATS.range[lv]}타일 | 수리: ${baseHeal}HP/s`;
+    specStr = `범위: ${REPAIR_STATS.range[lv]}타일 | 수리: ${baseHeal}HP/s${_defStr}`;
   } else if (building.type === 'WALL') {
-    specStr = `Lv.${building.level} | HP: ${building.hpMax} | 최대 공격자: ${WALL_MAX_CAPACITY}슬롯`;
+    specStr = `Lv.${building.level} | HP: ${building.hpMax} | 최대 공격자: ${WALL_MAX_CAPACITY}슬롯${_defStr}`;
   } else if (building.type === 'RESOURCE') {
     const rbLv = G.globalUpgrades.RESOURCE_BOOST;
     const baseAmt = Math.round(RESOURCE_STATS.amount * (1 + (building.level - 1) * 0.3));
     const bonusAmt = Math.round(baseAmt * rbLv * 0.03);
     const amtStr = bonusAmt > 0 ? `${baseAmt}+${bonusAmt}` : `${baseAmt}`;
-    specStr = `Lv.${building.level} | 생산량: ${amtStr} | 생산 간격: ${RESOURCE_STATS.interval}s`;
+    specStr = `Lv.${building.level} | 생산량: ${amtStr} | 생산 간격: ${RESOURCE_STATS.interval}s${_defStr}`;
   } else if (building.type === 'BALLISTA') {
     const lv = (building.level || 1) - 1;
     const balBoostLv = G.globalUpgrades.TOWER_BOOST;
     const balBaseDmg = BALLISTA_STATS.damage[lv];
     const balBonusDmg = Math.round(balBaseDmg * balBoostLv * 0.03);
     const balDmgStr = balBonusDmg > 0 ? `${balBaseDmg}+${balBonusDmg}` : `${balBaseDmg}`;
-    specStr = `공격력: ${balDmgStr} | 사거리: ${BALLISTA_STATS.range[lv]}타일 | 속도: ${BALLISTA_STATS.fireRate[lv]}/s | 원거리 우선`;
+    specStr = `공격력: ${balDmgStr} | 사거리: ${BALLISTA_STATS.range[lv]}타일 | 속도: ${BALLISTA_STATS.fireRate[lv]}/s | 원거리 우선${_defStr}`;
   } else if (building.type === 'NEST') {
-    specStr = `거점 건물 — 파괴 시 게임 오버`;
+    specStr = `거점 건물 — 파괴 시 게임 오버${_defStr}`;
   }
 
   // bpStats 내부 구성
@@ -3288,7 +3326,7 @@ function openBuildingRadialMenu(clientX, clientY, building) {
   G.selectedBuildingId = building.id; // 범위 원 표시용
 
   const def = BUILDING_DEFS[building.type];
-  const maxLv = building.type === 'WALL' ? 10 : building.type === 'NEST' ? 3 : 5;
+  const maxLv = building.type === 'WALL' ? 30 : building.type === 'NEST' ? 3 : 5;
   const isNest = building.type === 'NEST';
 
   // 액션 목록 구성
