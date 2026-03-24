@@ -57,7 +57,7 @@ const BUILDING_DEFS = Object.freeze({
               upgradeTime: [5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 35, 38, 41, 44, 47, 50, 53, 57, 61, 65, 70, 75],
               upgradeCost: [30, 50, 80, 150, 200, 300, 500, 800, 1300, 2000, 3000, 4500, 6500, 9000, 13000, 18000, 25000, 35000, 50000, 70000, 100000, 140000, 200000, 280000, 400000, 560000, 800000, 1100000, 1600000, null],
               hpPerLevel: [200, 260, 340, 440, 570, 740, 960, 1250, 1625, 2100, 2730, 3550, 4620, 6000, 7800, 10140, 13200, 17160, 22300, 29000, 37700, 49000, 63700, 82800, 107600, 139900, 181800, 236300, 307200, 399400] },
-  THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '🌵', color: '#8B2500', hpMax: 120,  armorType: 'STRUCTURE',
+  THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '✴️', color: '#8B2500', hpMax: 120,  armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
   SPORE:    { name: '산성 포자',  cost: 70,  buildTime: 4,  tile: TILE.SPORE,    icon: '🟢', color: '#207830', hpMax: 100,  armorType: 'STRUCTURE',
               upgradeTime: [10, 11, 12, 13, 14], upgradeCost: [150, 500, 1500, 3000, null] },
