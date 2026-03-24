@@ -3572,15 +3572,70 @@ window.addEventListener('resize', () => {
   }
 });
 
-// 일시정지 버튼
-const pauseBtn = document.getElementById('pause-btn');
-pauseBtn.addEventListener('click', (e) => {
+// 인게임 메뉴
+const menuBtn       = document.getElementById('menu-btn');
+const gameMenu      = document.getElementById('game-menu');
+const menuPauseBtn  = document.getElementById('menu-pause-btn');
+const menuRestartBtn= document.getElementById('menu-restart-btn');
+const menuCloseBtn  = document.getElementById('menu-close-btn');
+
+function openGameMenu() {
+  const canPause = G.state === STATE.COUNTDOWN || G.state === STATE.WAVE;
+  menuPauseBtn.style.display = canPause ? '' : 'none';
+  menuPauseBtn.textContent = G.paused ? '▶  재개' : '❚❚  일시 정지';
+  menuPauseBtn.classList.toggle('paused', G.paused);
+  // 일시정지 상태로 메뉴 열기
+  if (canPause && !G.paused) {
+    G.paused = true;
+    G.prevTime = null;
+  }
+  gameMenu.classList.remove('hidden');
+}
+
+function closeGameMenu() {
+  gameMenu.classList.add('hidden');
+}
+
+menuBtn.addEventListener('click', (e) => {
   e.stopPropagation();
-  if (G.state !== STATE.COUNTDOWN && G.state !== STATE.WAVE) return;
+  if (gameMenu.classList.contains('hidden')) {
+    openGameMenu();
+  } else {
+    closeGameMenu();
+  }
+});
+
+menuPauseBtn.addEventListener('click', () => {
   G.paused = !G.paused;
-  pauseBtn.classList.toggle('paused', G.paused);
-  pauseBtn.textContent = G.paused ? '▶' : '❚❚';
-  if (!G.paused) G.prevTime = null; // dt 폭발 방지
+  menuPauseBtn.textContent = G.paused ? '▶  재개' : '❚❚  일시 정지';
+  menuPauseBtn.classList.toggle('paused', G.paused);
+  if (!G.paused) {
+    G.prevTime = null;
+    closeGameMenu();
+  }
+});
+
+menuRestartBtn.addEventListener('click', () => {
+  closeGameMenu();
+  G.paused = false;
+  initGame();
+  resizeCanvas();
+  clampCamera();
+  buildBuildPanel();
+  showOverlay(
+    'XenoNest',
+    '핵심 둥지를 건설하고<br>인간 병사로부터 영토를 지켜라!',
+    '게임 시작'
+  );
+});
+
+menuCloseBtn.addEventListener('click', () => {
+  // 닫기: 일시정지 해제 후 게임 재개
+  if (G.paused) {
+    G.paused = false;
+    G.prevTime = null;
+  }
+  closeGameMenu();
 });
 
 // 최초 초기화
