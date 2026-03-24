@@ -1369,7 +1369,6 @@ function updateHUD() {
       threatBar.innerHTML = `
         <span class="threat-label">공세 ${threatLv}/${totalPhases}단계</span>
         <div class="threat-progress"><div class="threat-fill" style="width:${pct}%;background:${barColor}"></div></div>
-        <span class="threat-detail">${buildThreatDetail(s)}</span>
       `;
       threatBar.style.display = 'flex';
     } else if (G.state === STATE.COUNTDOWN) {
@@ -1381,17 +1380,6 @@ function updateHUD() {
   }
 }
 
-function buildThreatDetail(s) {
-  const parts = [];
-  if (s.citizen  > 0) parts.push(`시민 ${s.citizen}`);
-  if (s.scout    > 0) parts.push(`정찰 ${s.scout}`);
-  if (s.fast     > 0) parts.push(`돌격 ${s.fast}`);
-  if (s.tanker   > 0) parts.push(`중장 ${s.tanker}`);
-  if (s.warrior  > 0) parts.push(`전사 ${s.warrior}`);
-  if (s.mage     > 0) parts.push(`마법사 ${s.mage}`);
-  if (s.archer   > 0) parts.push(`궁수 ${s.archer}`);
-  return parts.join(' · ');
-}
 
 
 // ── 13. 오버레이 UI ───────────────────────────────────────────────────────────

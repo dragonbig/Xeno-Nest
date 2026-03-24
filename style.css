@@ -135,12 +135,6 @@ html, body {
   transition: width 0.4s ease;
 }
 
-.threat-detail {
-  color: #9090b0;
-  font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* ── 하단 건물 선택 버튼 패널 ── */
 #build-panel {
