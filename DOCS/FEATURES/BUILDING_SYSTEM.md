@@ -2,7 +2,7 @@
 
 > **카테고리:** FEATURES
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-23 (Phase 7: 건물 선택 Radial Menu, NEST 레벨별 비주얼, 모바일 Portrait 최적화, 버튼 위치 재배치)
+> **최종 갱신:** 2026-03-24 (Phase 8: BALLISTA 타워 추가, BUILD_GROUPS 갱신)
 > **관련 기능:** 건물 배치, 업그레이드, 철거, 건물 정보 패널, 슬로우 디버프, 구조물 수리, 광고 버프
 
 ## 개요
@@ -67,9 +67,12 @@ BUILD_GROUPS = [
     { key: 'SPORE',    label: '산성포자' },
     { key: 'REPAIR',   label: '수리' },
     { key: 'RESOURCE', label: '자원' },
+    { key: 'BALLISTA', label: '발리스타' },
   ],
 ];
 ```
+
+> **Phase 8 변경:** BALLISTA가 6번째 항목으로 추가되었다. Radial Menu에서 시계방향 6번째 위치에 표시된다.
 
 NEST는 BUILD_GROUPS에 포함되지 않는다. PLACING 상태에서 별도 처리된다.
 
