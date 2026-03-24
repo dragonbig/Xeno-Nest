@@ -748,33 +748,30 @@ function startUpgrade(building) {
 }
 
 
-// 자원 건물 일괄 진화: 선택한 건물의 레벨 기준으로 동일 레벨 건물 일괄 업그레이드
-function calcResourceBatchUpgrade(selectedBuilding) {
-  const targetLv = selectedBuilding.level;
-  const def = BUILDING_DEFS.RESOURCE;
-  const maxLv = 5;
-  if (targetLv >= maxLv) return { count: 0, totalCost: 0 };
-  const costPerUnit = def.upgradeCost[targetLv - 1];
-  if (costPerUnit === null) return { count: 0, totalCost: 0 };
+// 타워 일괄 진화: 선택한 건물과 동일 타입·레벨의 건물을 자원이 허용하는 만큼 업그레이드
+function calcBatchUpgrade(selectedBuilding) {
+  const { type, level } = selectedBuilding;
+  const def = BUILDING_DEFS[type];
+  if (!def || !def.upgradeCost) return { count: 0, totalCost: 0, targets: [] };
+  const maxLv = type === 'WALL' ? 10 : 5;
+  if (level >= maxLv) return { count: 0, totalCost: 0, targets: [] };
+  const costPerUnit = def.upgradeCost[level - 1];
+  if (costPerUnit == null) return { count: 0, totalCost: 0, targets: [] };
 
-  // 동일 레벨, 건설 완료, 진화 중 아닌 자원 건물 수집
   const targets = G.buildings.filter(b =>
-    b.type === 'RESOURCE' && b.built && !b.upgrading && b.level === targetLv
+    b.type === type && b.built && !b.upgrading && b.level === level
   );
-  // 자원으로 업그레이드 가능한 최대 수
   const affordable = Math.floor(G.resource / costPerUnit);
   const count = Math.min(targets.length, affordable);
   return { count, totalCost: count * costPerUnit, targets };
 }
 
-function execResourceBatchUpgrade(selectedBuilding) {
-  const info = calcResourceBatchUpgrade(selectedBuilding);
+function execBatchUpgrade(selectedBuilding) {
+  const info = calcBatchUpgrade(selectedBuilding);
   if (info.count === 0) return 0;
-  const def = BUILDING_DEFS.RESOURCE;
-  const costPerUnit = def.upgradeCost[selectedBuilding.level - 1];
+  const costPerUnit = BUILDING_DEFS[selectedBuilding.type].upgradeCost[selectedBuilding.level - 1];
   let upgraded = 0;
-  for (let i = 0; i < info.count; i++) {
-    const b = info.targets[i];
+  for (const b of info.targets) {
     if (G.resource < costPerUnit) break;
     if (startUpgrade(b)) upgraded++;
   }
@@ -1460,14 +1457,6 @@ function renderTerrain() {
         tc.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE / 3);
       }
 
-      // 입구 표시
-      if (t === TILE.ENTRANCE) {
-        tc.fillStyle = '#c85020';
-        tc.font = 'bold 11px monospace';
-        tc.textAlign = 'center';
-        tc.textBaseline = 'middle';
-        tc.fillText('입구', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
-      }
 
       // 스폰 지점 표시 — 해골 마크
       if (t === TILE.SPAWN) {
@@ -3224,9 +3213,9 @@ function openBuildingRadialMenu(clientX, clientY, building) {
     });
   }
 
-  // 자원 건물 일괄 진화 액션
-  if (building.type === 'RESOURCE' && building.built && !atMax) {
-    const batchInfo = calcResourceBatchUpgrade(building);
+  // 일괄 진화 액션 (NEST 제외, 진화 가능한 모든 타워)
+  if (!isNest && building.built && !atMax) {
+    const batchInfo = calcBatchUpgrade(building);
     const batchDisabled = batchInfo.count === 0;
     actions.push({
       icon: '⏫',
@@ -3235,9 +3224,9 @@ function openBuildingRadialMenu(clientX, clientY, building) {
       insufficient: batchDisabled,
       disabled: batchDisabled,
       onClick: () => {
-        const result = execResourceBatchUpgrade(building);
+        const result = execBatchUpgrade(building);
         if (result > 0) {
-          showStatus(`자원 건물 ${result}개 일괄 진화 완료`);
+          showStatus(`${BUILDING_DEFS[building.type].name} ${result}개 일괄 진화 완료`);
           closeRadialMenu();
           G.selectedBuildingId = null;
           updateHUD();
