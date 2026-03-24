@@ -2243,6 +2243,13 @@ function updateWave(dt) {
   // GAME_DURATION 경과 → 보스 스폰 (최초 1회)
   if (G.gameTimer >= GAME_DURATION && !G.bossSpawned) {
     G.bossSpawned = true;
+    // 기존 생존 몬스터 HP·공격력 +50% 버프
+    for (const e of G.enemies) {
+      if (e.type === 'NOVICE_HERO') continue;
+      e.hp    = Math.round(e.hp    * 1.5);
+      e.hpMax = Math.round(e.hpMax * 1.5);
+      e.attackDmg = Math.round(e.attackDmg * 1.5);
+    }
     spawnEnemy('NOVICE_HERO', 0);
     for (let i = 0; i < 20; i++) spawnEnemy('WARRIOR', i % BASE_ENTRANCE.length);
     for (let i = 0; i < 10; i++) spawnEnemy('MAGE', i % BASE_ENTRANCE.length);
