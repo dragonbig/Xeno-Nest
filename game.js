@@ -412,20 +412,26 @@ function createGrid() {
     // 우벽
     grid[row][right] = TILE.BLOCKED;
 
-    // 행 간 열 차이 보정 — 이전 행과 현재 행 사이의 수평 연결 보장
+    // 행 간 열 차이 보정 — 대각선 틈 방지
+    // 벽이 바깥으로 확장(left 감소 / right 증가)하면 이전 행을 채워야 내부가 보존된다.
+    // 벽이 안으로 수렴(left 증가 / right 감소)하면 현재 행을 채워야 틈이 막힌다.
     if (i > 0) {
-      const [, prevLeft, prevRight] = wallProfile[i - 1];
-      // 좌벽: 이전 행에서 현재 행으로 열이 바뀌면 중간 채움
-      if (left !== prevLeft) {
-        const minC = Math.min(left, prevLeft);
-        const maxC = Math.max(left, prevLeft);
-        for (let c = minC; c <= maxC; c++) grid[row][c] = TILE.BLOCKED;
+      const [prevRow, prevLeft, prevRight] = wallProfile[i - 1];
+      // 좌벽
+      if (left < prevLeft) {
+        // 확장: 이전 행에 채움
+        for (let c = left; c < prevLeft; c++) grid[prevRow][c] = TILE.BLOCKED;
+      } else if (left > prevLeft) {
+        // 수렴: 현재 행에 채움
+        for (let c = prevLeft; c <= left; c++) grid[row][c] = TILE.BLOCKED;
       }
-      // 우벽: 같은 처리
-      if (right !== prevRight) {
-        const minC = Math.min(right, prevRight);
-        const maxC = Math.max(right, prevRight);
-        for (let c = minC; c <= maxC; c++) grid[row][c] = TILE.BLOCKED;
+      // 우벽
+      if (right > prevRight) {
+        // 확장: 이전 행에 채움
+        for (let c = prevRight + 1; c <= right; c++) grid[prevRow][c] = TILE.BLOCKED;
+      } else if (right < prevRight) {
+        // 수렴: 현재 행에 채움
+        for (let c = right; c <= prevRight; c++) grid[row][c] = TILE.BLOCKED;
       }
     }
   }
