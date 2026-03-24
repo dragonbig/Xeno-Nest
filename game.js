@@ -871,6 +871,9 @@ function spawnEnemy(type, entranceIndex) {
     rangedTiles: def.rangedTiles || 0,
     slowedTimer: 0,  // 슬로우 남은 시간(초) — SPORE 산성 디버프
     slowAmount:  0,  // 슬로우 비율 (0~1)
+    stuckTimer:  0,  // 끼임 감지 누적 시간(초)
+    stuckLastX:  spawnX,
+    stuckLastY:  spawnY,
   };
 
   // NOVICE_HERO: 스킬 타이머 초기화 (10초 후 첫 AoE 발동)
@@ -2342,6 +2345,27 @@ function updateEnemies(dt) {
 
     // 직선 추적: 매 프레임 경로 상 장애물을 재평가해 이동/공격한다
     pursueTarget(e, dt);
+
+    // ── 끼임 감지: 건물 공격 중이 아닌데 10초간 거의 이동 없으면 재스폰 ──
+    if (e.type !== 'NOVICE_HERO' && !e.targetBldId) {
+      const moved   = Math.hypot(e.x - e.stuckLastX, e.y - e.stuckLastY);
+      const minMove = e.speed * dt * 0.1; // 정상 이동속도의 10% 미만이면 정지로 간주
+      if (moved < minMove) {
+        e.stuckTimer += dt;
+        if (e.stuckTimer >= 10) {
+          // 재스폰: 현재 적 제거 후 동일 타입 새로 스폰
+          e.dead = true;
+          spawnEnemy(e.type, Math.floor(Math.random() * BASE_ENTRANCE.length));
+        }
+      } else {
+        e.stuckTimer = 0;
+      }
+    } else {
+      // 공격 중이거나 NOVICE_HERO: 스턱 타이머 리셋
+      e.stuckTimer = 0;
+    }
+    e.stuckLastX = e.x;
+    e.stuckLastY = e.y;
   }
 
   // 모든 살아있는 적끼리 캡슐 충돌 해소
