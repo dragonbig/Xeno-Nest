@@ -2390,29 +2390,38 @@ function updateEnemies(dt) {
 }
 
 /**
- * NOVICE_HERO 스킬 — NEST 방향 전방 1·2·3칸 타일을 1자로 순서대로 타격.
- * 각 칸은 겹치지 않는 1×1 타일이며 해당 타일에 건물이 있으면 피해를 입힌다.
+ * NOVICE_HERO 스킬 — 현재 공격 중인 건물을 기준점으로, NEST 방향으로
+ * 1·2·3칸 타일을 1자로 순서대로 타격한다.
+ * 공격 중인 건물이 없으면 자기 위치를 기준점으로 사용한다.
  */
 function fireNoviceHeroAoe(enemy) {
   if (!G.nestBuilding || !G.nestBuilding.built) return;
 
+  // 기준점: 현재 공격 중인 건물 중심, 없으면 자기 위치
+  const targetBld = enemy.targetBldId
+    ? G.buildings.find(b => b.id === enemy.targetBldId && b.built && !b.dead)
+    : null;
+  const origin = targetBld ? getBuildingCenter(targetBld) : { x: enemy.x, y: enemy.y };
+
+  // 방향: 초보 용사 자신 → 공격 대상 방향 (공격 대상 없으면 NEST 방향)
   const nestCenter = getBuildingCenter(G.nestBuilding);
-  const dx   = nestCenter.x - enemy.x;
-  const dy   = nestCenter.y - enemy.y;
+  const refX = targetBld ? origin.x : nestCenter.x;
+  const refY = targetBld ? origin.y : nestCenter.y;
+  const dx   = refX - enemy.x;
+  const dy   = refY - enemy.y;
   const dist = Math.hypot(dx, dy);
 
-  // NEST 방향 단위벡터
   const ux = dist > 0 ? dx / dist : 0;
   const uy = dist > 0 ? dy / dist : 0;
 
   const aoeDmg = ENEMY_DEFS.NOVICE_HERO.aoeDmg;
 
-  // 전방 1~3칸 타일 중심 좌표
+  // 기준점에서 공격 방향으로 1~3칸 타일 중심 좌표
   const tileHits = [];
   for (let i = 1; i <= 3; i++) {
     tileHits.push({
-      x: enemy.x + ux * TILE_SIZE * i,
-      y: enemy.y + uy * TILE_SIZE * i,
+      x: origin.x + ux * TILE_SIZE * i,
+      y: origin.y + uy * TILE_SIZE * i,
     });
   }
 
