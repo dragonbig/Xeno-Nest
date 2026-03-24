@@ -231,7 +231,7 @@ const ENEMY_DEFS = Object.freeze({
     color:'#60a040', outlineColor:'#305020',
   },
   NOVICE_HERO: {
-    name:'초보 용사', hpMax:10000, speed:40, damage:0, reward:0,
+    name:'초보 용사', hpMax:20000, speed:40, damage:0, reward:0,
     attackDmg:100, attackRate:1.0, radius:20, slotCost:10,
     attackType:'HERO', armorType:'HERO',
     ranged:false,
