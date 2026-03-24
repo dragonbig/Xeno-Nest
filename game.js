@@ -2029,8 +2029,12 @@ function renderFloatingTexts() {
 function renderProjectiles() {
   for (const p of G.projectiles) {
     const isAcid  = p.attackType === 'ACID';
-    const color   = isAcid ? '#c0e030' : '#80ff80';
-    const tailClr = isAcid ? 'rgba(192, 224, 48, 0.4)' : 'rgba(128, 255, 128, 0.4)';
+    const color   = p.fromBallista ? '#c060ff'
+                  : isAcid         ? '#c0e030'
+                  : '#80ff80';
+    const tailClr = p.fromBallista ? 'rgba(192, 96, 255, 0.4)'
+                  : isAcid         ? 'rgba(192, 224, 48, 0.4)'
+                  : 'rgba(128, 255, 128, 0.4)';
 
     ctx.beginPath();
     ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
@@ -2682,10 +2686,10 @@ function updateTowers(dt) {
       G.towerTimers[b.id] = (G.towerTimers[b.id] || 0) - dt;
       if (G.towerTimers[b.id] > 0) continue;
 
-      // 1순위: ranged 적 (ARCHER, MAGE)
+      // 1순위: MAGE / ARCHER 우선
       let target = null, bestDist = Infinity;
       for (const e of livingEnemies) {
-        if (!e.ranged) continue;
+        if (e.type !== 'MAGE' && e.type !== 'ARCHER') continue;
         const d = Math.hypot(e.x - bpx.x, e.y - bpx.y);
         if (d <= rangePixels && d < bestDist) { bestDist = d; target = e; }
       }
@@ -2754,16 +2758,17 @@ function fireProjectile(building, target, towerPixel, damage, attackType) {
   const isHoming = building.type === 'THORN'; // 촉수 투사체만 유도
 
   G.projectiles.push({
-    id:         G.nextId++,
-    x:          towerPixel.x,
-    y:          towerPixel.y,
-    vx:         (dx / dist) * spd,
-    vy:         (dy / dist) * spd,
-    speed:      spd,
+    id:           G.nextId++,
+    x:            towerPixel.x,
+    y:            towerPixel.y,
+    vx:           (dx / dist) * spd,
+    vy:           (dy / dist) * spd,
+    speed:        spd,
     damage,
-    targetId:   target.id,
-    homing:     isHoming,
+    targetId:     target.id,
+    homing:       isHoming,
     attackType,
+    fromBallista: building.type === 'BALLISTA',
   });
 }
 
