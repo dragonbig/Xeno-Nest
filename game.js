@@ -59,7 +59,7 @@ const BUILDING_DEFS = Object.freeze({
               hpPerLevel: [200, 260, 340, 440, 570, 740, 960, 1250, 1625, 2100, 2730, 3550, 4620, 6000, 7800, 10140, 13200, 17160, 22300, 29000, 37700, 49000, 63700, 82800, 107600, 139900, 181800, 236300, 307200, 399400] },
   THORN:    { name: '가시 촉수',  cost: 50,  buildTime: 3,  tile: TILE.THORN,    icon: '❇️', color: '#8B2500', hpMax: 120,  armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
-  SPORE:    { name: '산성 포자',  cost: 70,  buildTime: 4,  tile: TILE.SPORE,    icon: '🟢', color: '#806030', hpMax: 100,  armorType: 'STRUCTURE',
+  SPORE:    { name: '산성 포자',  cost: 70,  buildTime: 4,  tile: TILE.SPORE,    icon: '🟢', color: '#207830', hpMax: 100,  armorType: 'STRUCTURE',
               upgradeTime: [10, 11, 12, 13, 14], upgradeCost: [150, 500, 1500, 3000, null] },
   REPAIR:   { name: '구조물 수리',cost: 60,  buildTime: 4,  tile: TILE.REPAIR_BLD,icon: '🔧', color: '#305080', hpMax: 80,   armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11, 12], upgradeCost: [150, 500, 1500, 3000, null] },
@@ -2031,12 +2031,14 @@ function renderFloatingTexts() {
 
 function renderProjectiles() {
   for (const p of G.projectiles) {
-    const isAcid  = p.attackType === 'ACID';
-    const color   = p.fromBallista ? '#c060ff'
-                  : isAcid         ? '#c0e030'
+    const st = p.sourceType;
+    const color   = st === 'BALLISTA' ? '#c060ff'
+                  : st === 'THORN'    ? '#c03010'
+                  : st === 'SPORE'    ? '#40d060'
                   : '#80ff80';
-    const tailClr = p.fromBallista ? 'rgba(192, 96, 255, 0.4)'
-                  : isAcid         ? 'rgba(192, 224, 48, 0.4)'
+    const tailClr = st === 'BALLISTA' ? 'rgba(192, 96, 255, 0.4)'
+                  : st === 'THORN'    ? 'rgba(192, 48, 16, 0.4)'
+                  : st === 'SPORE'    ? 'rgba(64, 208, 96, 0.4)'
                   : 'rgba(128, 255, 128, 0.4)';
 
     ctx.beginPath();
@@ -2820,7 +2822,7 @@ function fireProjectile(building, target, towerPixel, damage, attackType) {
     targetId:     target.id,
     homing:       isHoming,
     attackType,
-    fromBallista: building.type === 'BALLISTA',
+    sourceType:   building.type,
   });
 }
 
