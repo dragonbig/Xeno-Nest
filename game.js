@@ -232,11 +232,11 @@ const ENEMY_DEFS = Object.freeze({
   },
   NOVICE_HERO: {
     name:'초보 용사', hpMax:20000, speed:40, damage:0, reward:0,
-    attackDmg:100, attackRate:1.0, radius:20, slotCost:10,
+    attackDmg:200, attackRate:1.5, radius:20, slotCost:10,
     attackType:'HERO', armorType:'HERO',
     ranged:false,
     color:'#FFD700', outlineColor:'#B8860B',
-    skillCooldown:10, aoeRange:3 * 48, aoeDmg:200,
+    skillCooldown:7, aoeRange:3 * 48, aoeDmg:300,
   },
 });
 
@@ -2250,16 +2250,15 @@ function updateWave(dt) {
   // GAME_DURATION 경과 → 보스 스폰 (최초 1회)
   if (G.gameTimer >= GAME_DURATION && !G.bossSpawned) {
     G.bossSpawned = true;
-    // 기존 생존 몬스터 HP·공격력 +50% 버프
+    // 기존 생존 몬스터 HP +100% 버프
     for (const e of G.enemies) {
       if (e.type === 'NOVICE_HERO') continue;
-      e.hp    = Math.round(e.hp    * 1.5);
-      e.hpMax = Math.round(e.hpMax * 1.5);
-      e.attackDmg = Math.round(e.attackDmg * 1.5);
+      e.hp    = Math.round(e.hp    * 2.0);
+      e.hpMax = Math.round(e.hpMax * 2.0);
     }
     spawnEnemy('NOVICE_HERO', 0);
-    for (let i = 0; i < 20; i++) spawnEnemy('WARRIOR', i % BASE_ENTRANCE.length);
-    for (let i = 0; i < 10; i++) spawnEnemy('MAGE', i % BASE_ENTRANCE.length);
+    for (let i = 0; i < 30; i++) spawnEnemy('WARRIOR', i % BASE_ENTRANCE.length);
+    for (let i = 0; i < 20; i++) spawnEnemy('MAGE', i % BASE_ENTRANCE.length);
     showStatus('보스 등장! 초보 용사와 부하들이 나타났다!', 5000);
     return;
   }
