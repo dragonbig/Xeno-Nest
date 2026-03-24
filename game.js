@@ -196,39 +196,47 @@ const ENEMY_DEFS = Object.freeze({
     color:'#c87820', outlineColor:'#7a4410',
   },
   FAST: {
-    name:'돌격병', hpMax:45, speed:130, damage:20, reward:15,
+    name:'돌격병', hpMax:54, speed:130, damage:20, reward:15,
     attackDmg:10, attackRate:1.2, radius:12, slotCost:2,
     attackType:'PHYSICAL', armorType:'PHYSICAL',
     ranged:false,
     color:'#e04040', outlineColor:'#901010',
   },
   TANKER: {
-    name:'중장갑', hpMax:280, speed:40, damage:60, reward:30,
+    name:'중장갑', hpMax:336, speed:40, damage:60, reward:30,
     attackDmg:35, attackRate:0.6, radius:15, slotCost:2,
     attackType:'PHYSICAL', armorType:'PHYSICAL',
     ranged:false,
     color:'#4060c0', outlineColor:'#203080',
   },
   WARRIOR: {
-    name:'전사 모험가', hpMax:480, speed:55, damage:80, reward:60,
+    name:'전사 모험가', hpMax:749, speed:55, damage:80, reward:60,
     attackDmg:60, attackRate:0.8, radius:14, slotCost:3,
-    attackType:'HERO', armorType:'HERO',
+    attackType:'PHYSICAL', armorType:'PHYSICAL',
     ranged:false,
     color:'#d0a030', outlineColor:'#805010',
   },
   MAGE: {
-    name:'마법사 모험가', hpMax:260, speed:65, damage:60, reward:50,
+    name:'마법사 모험가', hpMax:406, speed:65, damage:60, reward:50,
     attackDmg:40, attackRate:1.0, radius:11, slotCost:2,
-    attackType:'MAGICAL', armorType:'HERO',
+    attackType:'MAGICAL', armorType:'MAGICAL',
     ranged:true, rangedTiles:2.0, projSpeed:150,
     color:'#8040c0', outlineColor:'#401060',
   },
   ARCHER: {
-    name:'궁수', hpMax:65, speed:80, damage:20, reward:20,
+    name:'궁수', hpMax:78, speed:80, damage:20, reward:20,
     attackDmg:15, attackRate:1.2, radius:10, slotCost:1,
     attackType:'PHYSICAL', armorType:'PHYSICAL',
     ranged:true, rangedTiles:2.0, projSpeed:200,
     color:'#60a040', outlineColor:'#305020',
+  },
+  NOVICE_HERO: {
+    name:'초보 용사', hpMax:10000, speed:40, damage:0, reward:0,
+    attackDmg:100, attackRate:1.0, radius:20, slotCost:10,
+    attackType:'HERO', armorType:'HERO',
+    ranged:false,
+    color:'#FFD700', outlineColor:'#B8860B',
+    skillCooldown:10, aoeRange:3 * 48, aoeDmg:200,
   },
 });
 
@@ -265,7 +273,7 @@ const WALL_MAX_CAPACITY = 5;
 // 등급별 동시 생존 최대 개체 수
 // 한도 초과분은 pendingSpawn에 보류되어 다음 배치 타이밍에 재시도한다.
 const ENEMY_CAP = Object.freeze({
-  CITIZEN:80, SCOUT:100, FAST:50, TANKER:30, WARRIOR:10, MAGE:10, ARCHER:40
+  CITIZEN:80, SCOUT:100, FAST:50, TANKER:30, WARRIOR:10, MAGE:10, ARCHER:40, NOVICE_HERO:1
 });
 
 // 게임 타이밍
@@ -556,7 +564,7 @@ function initGame() {
     gameTimer:     0,    // WAVE 상태 진입 후 경과 시간(초) — 스폰 스케줄 기준
     spawnTimer:    0,    // 다음 스폰 배치까지 남은 시간(초)
     scheduleIdx:   0,    // 현재 적용 중인 SPAWN_SCHEDULE 인덱스
-    pendingSpawn:  { CITIZEN: 0, SCOUT: 0, FAST: 0, TANKER: 0, WARRIOR: 0, MAGE: 0, ARCHER: 0 }, // 캡 초과로 보류된 스폰 수
+    pendingSpawn:  { CITIZEN: 0, SCOUT: 0, FAST: 0, TANKER: 0, WARRIOR: 0, MAGE: 0, ARCHER: 0, NOVICE_HERO: 0 }, // 캡 초과로 보류된 스폰 수
     enemyProjectiles: [], // 적(원거리)이 발사한 투사체
     countdown:     COUNTDOWN_DURATION,
     nestTile:     null, // { col, row } — 핵심 둥지 위치
@@ -579,6 +587,10 @@ function initGame() {
       RESOURCE_BOOST:    0,
       STRUCTURE_FORTIFY: 0,
     },
+    gameSpeed:     1,
+    bossSpawned:   false,
+    bossDefeated:  false,
+    aoeFlashes:    [],
     paused:        false,
     adBuff:        { active: false, timer: 0, cooldown: 0 },
     _nestPopupOpen: false,
@@ -835,7 +847,7 @@ function spawnEnemy(type, entranceIndex) {
     // 해소 실패해도 그냥 스폰 (스폰 막지 않음)
   }
 
-  G.enemies.push({
+  const enemy = {
     id,
     type,
     x:           spawnX,
@@ -859,7 +871,14 @@ function spawnEnemy(type, entranceIndex) {
     rangedTiles: def.rangedTiles || 0,
     slowedTimer: 0,  // 슬로우 남은 시간(초) — SPORE 산성 디버프
     slowAmount:  0,  // 슬로우 비율 (0~1)
-  });
+  };
+
+  // NOVICE_HERO: 스킬 타이머 초기화 (10초 후 첫 AoE 발동)
+  if (type === 'NOVICE_HERO') {
+    enemy.skillTimer = 10;
+  }
+
+  G.enemies.push(enemy);
 }
 
 
@@ -1055,6 +1074,19 @@ document.getElementById('zoom-out').addEventListener('click', () => {
   G.camera.zoom = Math.max(0.5, +(G.camera.zoom - 0.25).toFixed(2));
   clampCamera();
   dirtyTerrain();
+});
+
+// ── 2배속 버튼 ───────────────────────────────────────────────────────────
+
+const speedBtn = document.getElementById('speed-btn');
+
+speedBtn.addEventListener('click', () => {
+  // GAME_OVER, IDLE, PLACING 상태에서는 무시
+  if (G.state === STATE.GAME_OVER || G.state === STATE.IDLE || G.state === STATE.PLACING) return;
+  G.gameSpeed = G.gameSpeed === 1 ? 2 : 1;
+  const is2x = G.gameSpeed === 2;
+  speedBtn.textContent = is2x ? '2x' : '1x';
+  speedBtn.classList.toggle('active', is2x);
 });
 
 
@@ -1289,11 +1321,17 @@ function updateHUD() {
   if (G.state === STATE.COUNTDOWN) {
     elTimer.textContent = Math.ceil(G.countdown) + 's';
   } else if (G.state === STATE.WAVE) {
-    // 남은 게임 시간 MM:SS 형식
-    const remaining = Math.max(0, GAME_DURATION - G.gameTimer);
-    const mm = Math.floor(remaining / 60);
-    const ss = Math.floor(remaining % 60);
-    elTimer.textContent = `${mm}:${ss.toString().padStart(2, '0')}`;
+    if (G.bossSpawned && !G.bossDefeated) {
+      // 보스 등장 후: 보스 HP 표시
+      const boss = G.enemies.find(e => e.type === 'NOVICE_HERO' && !e.dead);
+      elTimer.textContent = boss ? `👑 ${Math.ceil(boss.hp)}` : '보스 처치!';
+    } else {
+      // 남은 게임 시간 MM:SS 형식
+      const remaining = Math.max(0, GAME_DURATION - G.gameTimer);
+      const mm = Math.floor(remaining / 60);
+      const ss = Math.floor(remaining % 60);
+      elTimer.textContent = `${mm}:${ss.toString().padStart(2, '0')}`;
+    }
   } else if (G.state === STATE.PREP) {
     const nb = G.nestBuilding;
     elTimer.textContent = nb ? Math.ceil(nb.buildTimer) + 's' : '-';
@@ -1401,6 +1439,9 @@ function startNewGame() {
   // 광고 버프 초기화
   adBuffBtn.classList.remove('active');
   adBuffBtn.textContent = 'AD';
+  // 게임 속도 버튼 리셋 (initGame에서 G.gameSpeed=1로 이미 초기화됨)
+  speedBtn.textContent = '1x';
+  speedBtn.classList.remove('active');
   G.state = STATE.PLACING;
   setSelectedBuild('NEST');
   hideOverlay();
@@ -1428,6 +1469,26 @@ function showStatus(msg, duration = 2500) {
   statusTimeout = setTimeout(() => {
     statusMsg.classList.remove('visible');
   }, duration);
+}
+
+function spawnFloatText(b, amount) {
+  const canvas    = document.getElementById('game-canvas');
+  const container = document.getElementById('game-container');
+  const cr        = canvas.getBoundingClientRect();
+  const pr        = container.getBoundingClientRect();
+  const offX      = cr.left - pr.left;
+  const offY      = cr.top  - pr.top;
+  const worldX    = b.col * TILE_SIZE + TILE_SIZE / 2;
+  const worldY    = b.row * TILE_SIZE;
+  const sx = (worldX - G.camera.x) * G.camera.zoom * G.canvasScale + offX;
+  const sy = (worldY - G.camera.y) * G.camera.zoom * G.canvasScale + offY;
+  const el = document.createElement('div');
+  el.className   = 'float-text';
+  el.textContent = '+' + amount;
+  el.style.left  = sx + 'px';
+  el.style.top   = sy + 'px';
+  container.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
 }
 
 
@@ -1864,6 +1925,30 @@ function renderEnemies() {
   for (const e of G.enemies) {
     if (e.dead) continue;
 
+    // NOVICE_HERO: 전용 외형 렌더링
+    if (e.type === 'NOVICE_HERO') {
+      const bigR = e.radius * 1.5;
+      // 황금색 큰 원
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, bigR, 0, Math.PI * 2);
+      ctx.fillStyle = e.color;
+      ctx.fill();
+      // 두꺼운 황금 테두리
+      ctx.strokeStyle = e.outlineColor;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      // 중앙 검 이모지
+      ctx.font = `bold ${Math.round(e.radius * 1.5)}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚔️', e.x, e.y);
+      // HP 바 (더 두껍게, 더 넓게)
+      const hpBarW = e.radius * 4;
+      const hpBarH = 8;
+      drawHPBar(ctx, e.x - hpBarW / 2, e.y - bigR - 12, hpBarW, hpBarH, e.hp / e.hpMax);
+      continue;
+    }
+
     // 몸통: 원
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
@@ -1994,6 +2079,24 @@ function renderEnemyProjectiles() {
   }
 }
 
+/** NOVICE_HERO AoE 범위 플래시 렌더링 — 적 렌더링 이후 카메라 변환 내에서 호출 */
+function renderAoeFlashes() {
+  for (const f of G.aoeFlashes) {
+    const alpha = f.life / f.maxLife;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.45;
+    ctx.fillStyle = '#ff4400';
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.strokeStyle = '#ff8800';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 /** 메인 렌더 함수 */
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2011,6 +2114,9 @@ function render() {
 
   // 3. 적
   renderEnemies();
+
+  // 3-1. NOVICE_HERO AoE 플래시 (적 렌더링 직후)
+  renderAoeFlashes();
 
   // 4. 투사체 (타워)
   renderProjectiles();
@@ -2070,6 +2176,7 @@ function update(dt) {
     updateRepair(dt);
     updateRepairBuildings(dt);
     updateFloatingTexts(dt);
+    updateAoeFlashes(dt);
     updateAdBuff(dt);
     // checkWaveEnd 제거: 시간 기반 시스템에서 종료는 updateWave 내 triggerVictory가 처리한다
   }
@@ -2139,14 +2246,24 @@ function startWave() {
  * SPAWN_SCHEDULE의 timeStart를 기준으로 현재 구간(scheduleIdx)을 자동 갱신한다.
  */
 function updateWave(dt) {
-  G.gameTimer  += dt;
-  G.spawnTimer -= dt;
+  // 보스 등장 후에는 타이머가 GAME_DURATION에 고정되도록 증가를 막는다
+  if (!G.bossSpawned) {
+    G.gameTimer  += dt;
+    G.spawnTimer -= dt;
+  }
 
-  // 10분 경과 → 생존 성공
-  if (G.gameTimer >= GAME_DURATION) {
-    triggerVictory();
+  // GAME_DURATION 경과 → 보스 스폰 (최초 1회)
+  if (G.gameTimer >= GAME_DURATION && !G.bossSpawned) {
+    G.bossSpawned = true;
+    spawnEnemy('NOVICE_HERO', 0);
+    for (let i = 0; i < 20; i++) spawnEnemy('WARRIOR', i % BASE_ENTRANCE.length);
+    for (let i = 0; i < 10; i++) spawnEnemy('MAGE', i % BASE_ENTRANCE.length);
+    showStatus('보스 등장! 초보 용사와 부하들이 나타났다!', 5000);
     return;
   }
+
+  // 보스가 등장한 후에는 일반 스폰 로직 전부 건너뜀
+  if (G.bossSpawned) return;
 
   // 스케줄 구간 갱신: 다음 구간의 timeStart에 도달했으면 인덱스를 올린다
   const nextIdx = G.scheduleIdx + 1;
@@ -2215,6 +2332,15 @@ function updateEnemies(dt) {
   for (const e of G.enemies) {
     if (e.dead) continue;
 
+    // NOVICE_HERO: 스킬 타이머 및 AoE 처리
+    if (e.type === 'NOVICE_HERO') {
+      e.skillTimer = (e.skillTimer || 10) - dt;
+      if (e.skillTimer <= 0) {
+        e.skillTimer = 10;
+        fireNoviceHeroAoe(e);
+      }
+    }
+
     // 직선 추적: 매 프레임 경로 상 장애물을 재평가해 이동/공격한다
     pursueTarget(e, dt);
   }
@@ -2223,6 +2349,72 @@ function updateEnemies(dt) {
   resolveCapsuleCollisions();
 
   G.enemies = G.enemies.filter(e => !e.dead);
+}
+
+/**
+ * NOVICE_HERO AoE 스킬 — 적 위치에서 NEST 방향 전방 1.5타일 지점을 중심으로
+ * 반경 3타일(144px) 내 완성 건물에 HERO 공격 피해 200을 입힌다.
+ */
+function fireNoviceHeroAoe(enemy) {
+  if (!G.nestBuilding || !G.nestBuilding.built) return;
+
+  const nestCenter = getBuildingCenter(G.nestBuilding);
+  const dx = nestCenter.x - enemy.x;
+  const dy = nestCenter.y - enemy.y;
+  const dist = Math.hypot(dx, dy);
+
+  // NEST 방향 단위벡터
+  const ux = dist > 0 ? dx / dist : 0;
+  const uy = dist > 0 ? dy / dist : 0;
+
+  // AoE 중심: 적 위치에서 NEST 방향으로 1.5타일 앞
+  const aoeOffset = TILE_SIZE * 1.5;
+  const aoeCX = enemy.x + ux * aoeOffset;
+  const aoeCY = enemy.y + uy * aoeOffset;
+  const aoeRange = ENEMY_DEFS.NOVICE_HERO.aoeRange; // 3 * TILE_SIZE = 144px
+  const aoeDmg   = ENEMY_DEFS.NOVICE_HERO.aoeDmg;   // 200
+
+  // 범위 내 완성된 건물에 HERO 피해 적용
+  for (const b of G.buildings) {
+    if (!b.built) continue;
+    const bc = getBuildingCenter(b);
+    if (Math.hypot(bc.x - aoeCX, bc.y - aoeCY) <= aoeRange) {
+      const mult = (DAMAGE_TABLE['HERO'] || {})[b.armorType] || 1.0;
+      let dmg = Math.round(aoeDmg * mult);
+      {
+        const defLv = G.globalUpgrades.STRUCTURE_DEFENSE;
+        dmg = Math.round(dmg * (1 - defLv * 0.02));
+        if (dmg < 1) dmg = 1;
+      }
+      b.hp -= dmg;
+      spawnFloatingText(bc.x, bc.y, `-${dmg}`, '#ff8800');
+      if (b.hp <= 0) {
+        if (b.type === 'NEST') {
+          triggerGameOver();
+          return; // 게임 오버 후 추가 처리 불필요
+        } else {
+          removeBuilding(b);
+        }
+      }
+    }
+  }
+
+  // AoE 플래시 효과 등록
+  G.aoeFlashes.push({
+    x: aoeCX,
+    y: aoeCY,
+    r: aoeRange,
+    life: 0.5,
+    maxLife: 0.5,
+  });
+}
+
+/** AoE 플래시 수명 감소 및 만료 제거 */
+function updateAoeFlashes(dt) {
+  for (const f of G.aoeFlashes) {
+    f.life -= dt;
+  }
+  G.aoeFlashes = G.aoeFlashes.filter(f => f.life > 0);
 }
 
 /**
@@ -2654,6 +2846,10 @@ function updateProjectiles(dt) {
         if (target.hp <= 0) {
           target.dead = true;
           G.resource += target.reward; // 처치 보상
+          if (target.type === 'NOVICE_HERO') {
+            G.bossDefeated = true;
+            triggerVictory();
+          }
         }
         toRemove.push(p.id);
       }
@@ -2685,7 +2881,14 @@ function updateProjectiles(dt) {
               }
             }
           }
-          if (e.hp <= 0) { e.dead = true; G.resource += e.reward; }
+          if (e.hp <= 0) {
+            e.dead = true;
+            G.resource += e.reward;
+            if (e.type === 'NOVICE_HERO') {
+              G.bossDefeated = true;
+              triggerVictory();
+            }
+          }
           toRemove.push(p.id);
           break;
         }
@@ -2717,6 +2920,7 @@ function updateResourceBuildings(dt) {
         if (G.adBuff.active) amount *= 2;
         G.resource += amount;
         G.resourceTimers[b.id] = RESOURCE_STATS.interval;
+        spawnFloatText(b, amount);
       }
     }
     // NEST 자원 생산 — 레벨별 생산량 증가
@@ -2727,6 +2931,7 @@ function updateResourceBuildings(dt) {
         if (G.adBuff.active) nestAmt *= 2;
         G.resource += nestAmt;
         G.resourceTimers[b.id] = NEST_RESOURCE_INTERVAL;
+        spawnFloatText(b, nestAmt);
       }
     }
   }
@@ -3695,6 +3900,7 @@ function gameLoop(timestamp) {
   if (G.prevTime !== null) {
     dt = (timestamp - G.prevTime) / 1000;
     dt = Math.min(dt, DT_MAX);
+    dt *= G.gameSpeed; // 2배속 적용 (DT_MAX 클램핑 이후에 곱함)
   }
   G.prevTime = timestamp;
 
@@ -3790,6 +3996,9 @@ menuRestartBtn.addEventListener('click', () => {
   resizeCanvas();
   clampCamera();
   buildBuildPanel();
+  // 게임 속도 버튼 리셋
+  speedBtn.textContent = '1x';
+  speedBtn.classList.remove('active');
   showOverlay(
     'XenoNest',
     '핵심 둥지를 건설하고<br>인간 병사로부터 영토를 지켜라!',

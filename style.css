@@ -272,7 +272,7 @@ html, body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 22px;
+  font-size: 17px;
   font-weight: bold;
   color: #ffe060;
   text-shadow: 0 0 16px rgba(255, 220, 80, 0.9);
@@ -280,7 +280,26 @@ html, body {
   z-index: 15;
   opacity: 0;
   transition: opacity 0.3s;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 78%;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ── 자원 건물 생산 플로팅 텍스트 ── */
+@keyframes floatUp {
+  0%   { opacity: 1;   transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0;   transform: translateX(-50%) translateY(-52px); }
+}
+.float-text {
+  position: absolute;
+  pointer-events: none;
+  font-size: 15px;
+  font-weight: bold;
+  color: #7dff9a;
+  text-shadow: 0 0 8px rgba(80, 255, 120, 0.85);
+  z-index: 20;
+  animation: floatUp 1.3s ease-out forwards;
 }
 
 #status-msg.visible {
@@ -642,6 +661,41 @@ html, body {
 #ad-buff-btn.cooldown {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ── 게임 속도 버튼 ── */
+#speed-btn {
+  position: absolute;
+  right: 12px;
+  top: 8px;
+  width: 40px;
+  height: 28px;
+  border: 2px solid #3a3a6a;
+  border-radius: 6px;
+  background: rgba(18, 18, 42, 0.9);
+  color: #c0c0e0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  line-height: 1;
+}
+
+#speed-btn:hover,
+#speed-btn:active {
+  background: #1e1e3e;
+  border-color: #6060a0;
+}
+
+#speed-btn.active {
+  color: #FFD700;
+  border-color: #FFD700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
 }
 
 /* ── 줌 컨트롤 버튼 ── */
