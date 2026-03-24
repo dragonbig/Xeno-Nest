@@ -1113,7 +1113,9 @@ function onTileClicked(col, row) {
         return;
       }
       // 외벽 안에서만 건설 가능
-      const isInsideBase = row >= 1 && row <= 13
+      // row 상한: BASE_ENTRANCE row 바로 위까지 (입구 row는 WALL 전용)
+      const entranceRow = BASE_ENTRANCE[0].row;
+      const isInsideBase = row >= 1 && row < entranceRow
         && G.distanceMap && G.distanceMap[row][col] < Infinity;
       const isEntrance = currentTile === TILE.ENTRANCE;
 
