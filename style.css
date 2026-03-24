@@ -244,12 +244,14 @@ html, body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  display: flex;
+  gap: 8px;
 }
 
-#build-trigger-btn {
-  min-width: 80px;
+.build-btn {
+  min-width: 72px;
   min-height: 48px;
-  padding: 8px 20px;
+  padding: 8px 18px;
   border: 2px solid #6060c0;
   border-radius: 24px;
   background: rgba(18, 18, 42, 0.95);
@@ -261,14 +263,14 @@ html, body {
   transition: border-color 0.15s, background 0.15s;
 }
 
-#build-trigger-btn:hover,
-#build-trigger-btn:active {
+.build-btn:hover,
+.build-btn:active {
   background: #28285a;
   border-color: #9090e0;
   color: #ffffff;
 }
 
-#build-trigger-btn.active {
+.build-btn.active {
   border-color: #80c0ff;
   background: #1a2040;
   box-shadow: 0 0 10px rgba(128, 192, 255, 0.4);
@@ -785,9 +787,11 @@ html, body {
     min-height: 30px;
     font-size: 11px;
   }
-  #build-trigger-btn {
+  .build-btn {
     min-height: 40px;
     font-size: 12px;
+    min-width: 62px;
+    padding: 6px 14px;
   }
   #zoom-controls button {
     width: 40px;

@@ -1369,7 +1369,7 @@ function startNewGame() {
   bpHpEl = null;
   // 건설 모드 초기화
   buildModeActive = false;
-  buildTriggerBtn.classList.remove('active');
+  _updateBuildBtnActive();
   closeRadialMenu();
   // 광고 버프 초기화
   adBuffBtn.classList.remove('active');
@@ -2834,7 +2834,7 @@ function openBuildingPanel(building) {
   G.selectedBuild = null; // 배치 모드 비활성화
   // 건설 모드 비활성화
   buildModeActive = false;
-  buildTriggerBtn.classList.remove('active');
+  _updateBuildBtnActive();
   closeRadialMenu();
   updateBuildPanel();
 
@@ -3121,46 +3121,71 @@ function tickBuildingPanelHP() {
 // ── 건설 트리거 바 + 원형 메뉴 시스템 ─────────────────────────────────────────
 
 // 건물 그룹 정의 (NEST는 제외 — 기능 3에서 별도 처리)
+// 그룹 0: 방어/지원,  그룹 1: 공격 타워
 const BUILD_GROUPS = Object.freeze([
   [
     { key: 'WALL',     label: '성벽' },
-    { key: 'THORN',    label: '가시촉수' },
-    { key: 'SPORE',    label: '산성포자' },
     { key: 'REPAIR',   label: '수리' },
     { key: 'RESOURCE', label: '자원' },
+  ],
+  [
+    { key: 'THORN',    label: '가시촉수' },
+    { key: 'SPORE',    label: '산성포자' },
     { key: 'BALLISTA', label: '발리스타' },
   ],
 ]);
 
-const buildTriggerBar = document.getElementById('build-trigger-bar');
-const buildTriggerBtn = document.getElementById('build-trigger-btn');
-const radialMenu      = document.getElementById('radial-menu');
+const buildTriggerBar  = document.getElementById('build-trigger-bar');
+const buildDefenseBtn  = document.getElementById('build-defense-btn');
+const buildAttackBtn   = document.getElementById('build-attack-btn');
+const radialMenu       = document.getElementById('radial-menu');
 
 // 건설 모드 활성화 상태
-let buildModeActive = false;
+let buildModeActive  = false;
+let activeBuildGroup = 0; // 0=방어/지원, 1=공격
 
-buildTriggerBtn.addEventListener('click', () => {
+function _updateBuildBtnActive() {
+  buildDefenseBtn.classList.toggle('active', buildModeActive && activeBuildGroup === 0);
+  buildAttackBtn.classList.toggle('active',  buildModeActive && activeBuildGroup === 1);
+}
+
+function _handleBuildBtnClick(groupIdx) {
   if (G.state !== STATE.PREP && G.state !== STATE.COUNTDOWN && G.state !== STATE.WAVE) return;
   if (!G.nestBuilding || !G.nestBuilding.built) {
     showStatus('먼저 핵심 둥지를 건설하세요.');
     return;
   }
-  toggleBuildMode();
-});
+  if (buildModeActive && activeBuildGroup === groupIdx) {
+    // 같은 버튼 재클릭 → 건설 모드 종료
+    deactivateBuildMode();
+  } else {
+    // 다른 그룹 전환 또는 신규 활성화
+    activeBuildGroup = groupIdx;
+    buildModeActive  = true;
+    closeRadialMenu();
+    setSelectedBuild(null);
+    _updateBuildBtnActive();
+    dirtyTerrain();
+  }
+}
+
+buildDefenseBtn.addEventListener('click', () => _handleBuildBtnClick(0));
+buildAttackBtn.addEventListener('click',  () => _handleBuildBtnClick(1));
 
 function toggleBuildMode() {
-  buildModeActive = !buildModeActive;
-  buildTriggerBtn.classList.toggle('active', buildModeActive);
-  dirtyTerrain(); // 그리드 선 표시/숨김 전환
-  if (!buildModeActive) {
-    setSelectedBuild(null);
-    closeRadialMenu();
+  // 하위 호환 — 현재 activeBuildGroup 기준으로 토글
+  if (buildModeActive) {
+    deactivateBuildMode();
+  } else {
+    buildModeActive = true;
+    _updateBuildBtnActive();
+    dirtyTerrain();
   }
 }
 
 function deactivateBuildMode() {
   buildModeActive = false;
-  buildTriggerBtn.classList.remove('active');
+  _updateBuildBtnActive();
   dirtyTerrain();
   setSelectedBuild(null);
   closeRadialMenu();
@@ -3171,7 +3196,7 @@ function deactivateBuildMode() {
  * 시계방향으로 건물 아이콘을 배치한다 (12시 시작).
  */
 function openRadialMenu(clientX, clientY, col, row) {
-  const items = BUILD_GROUPS[0]; // 현재 1그룹
+  const items = BUILD_GROUPS[activeBuildGroup];
   radialMenu.innerHTML = '';
   radialMenu.classList.remove('hidden');
 
