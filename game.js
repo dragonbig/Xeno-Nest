@@ -216,14 +216,14 @@ const ENEMY_DEFS = Object.freeze({
     name:'마법사 모험가', hpMax:200, speed:65, damage:60, reward:50,
     attackDmg:30, attackRate:1.0, radius:11, slotCost:2,
     attackType:'MAGICAL', armorType:'HERO',
-    ranged:true, rangedTiles:3.5, projSpeed:150,
+    ranged:true, rangedTiles:5.0, projSpeed:150,
     color:'#8040c0', outlineColor:'#401060',
   },
   ARCHER: {
     name:'궁수', hpMax:50, speed:80, damage:20, reward:20,
     attackDmg:12, attackRate:1.2, radius:10, slotCost:1,
     attackType:'PHYSICAL', armorType:'PHYSICAL',
-    ranged:true, rangedTiles:2.5, projSpeed:200,
+    ranged:true, rangedTiles:3.5, projSpeed:200,
     color:'#60a040', outlineColor:'#305020',
   },
 });
@@ -2255,20 +2255,29 @@ function pursueTarget(e, dt) {
   let target = e.targetBldId ? G.buildings.find(b => b.id === e.targetBldId) : null;
   if (target && (target.dead || !target.built)) { target = null; e.targetBldId = null; }
 
-  // ── 타겟이 없으면 인접 타일에서 건물 탐색 ──
+  // ── 타겟이 없으면 건물 탐색 ──
+  // 원거리 적: 공격 사거리 내 가장 가까운 건물
+  // 근접 적: 인접 타일(맨해튼 거리 ≤ 1) 내 건물
   if (!target) {
     const ec = Math.floor(e.x / TILE_SIZE);
     const er = Math.floor(e.y / TILE_SIZE);
+    const scanRange = e.ranged
+      ? e.radius + TILE_SIZE * e.rangedTiles
+      : TILE_SIZE * 1.5;
     let bestBld = null, bestDist = Infinity;
     for (const b of G.buildings) {
       if (!b.built || b.dead) continue;
       const center = getBuildingCenter(b);
       const d = Math.hypot(e.x - center.x, e.y - center.y);
-      const bw = b.w || 1, bh = b.h || 1;
-      for (let dr = 0; dr < bh; dr++) {
-        for (let dc = 0; dc < bw; dc++) {
-          if (Math.abs(ec - (b.col + dc)) + Math.abs(er - (b.row + dr)) <= 1) {
-            if (d < bestDist) { bestDist = d; bestBld = b; }
+      if (e.ranged) {
+        if (d <= scanRange && d < bestDist) { bestDist = d; bestBld = b; }
+      } else {
+        const bw = b.w || 1, bh = b.h || 1;
+        for (let dr = 0; dr < bh; dr++) {
+          for (let dc = 0; dc < bw; dc++) {
+            if (Math.abs(ec - (b.col + dc)) + Math.abs(er - (b.row + dr)) <= 1) {
+              if (d < bestDist) { bestDist = d; bestBld = b; }
+            }
           }
         }
       }
