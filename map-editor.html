@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>XenoNest — 맵 에디터</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #d0d0e0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      text-align: center;
+      padding: 10px;
+      font-size: 18px;
+      color: #e060a0;
+      text-shadow: 0 0 12px rgba(220, 80, 150, 0.6);
+      border-bottom: 1px solid #2a2a4a;
+      flex-shrink: 0;
+    }
+
+    /* ── 레이아웃 ── */
+    #editor-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── 사이드바 ── */
+    #sidebar {
+      width: 220px;
+      min-width: 180px;
+      background: rgba(10, 10, 25, 0.95);
+      border-right: 1px solid #2a2a4a;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 11px;
+      color: #6060a0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .field-row label {
+      font-size: 11px;
+      color: #9090b0;
+      min-width: 60px;
+    }
+
+    .field-row input[type="number"],
+    .field-row input[type="text"] {
+      flex: 1;
+      background: #12122a;
+      border: 1px solid #3a3a6a;
+      border-radius: 4px;
+      color: #c0c0f0;
+      padding: 3px 6px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .field-row input:focus {
+      outline: none;
+      border-color: #6060c0;
+    }
+
+    /* ── 팔레트 ── */
+    #palette {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .palette-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border: 2px solid #3a3a6a;
+      border-radius: 6px;
+      background: #12122a;
+      color: #c0c0e0;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      transition: border-color 0.12s, background 0.12s;
+      text-align: left;
+    }
+
+    .palette-btn:hover { background: #1e1e3e; border-color: #6060a0; }
+
+    .palette-btn.selected {
+      border-color: #80c0ff;
+      background: #1a2040;
+      box-shadow: 0 0 6px rgba(128, 192, 255, 0.3);
+    }
+
+    .palette-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    /* ── 액션 버튼 ── */
+    .action-btn {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+
+    .action-btn.primary {
+      border: 2px solid #4060c0;
+      background: #18183a;
+      color: #c0c0f0;
+    }
+    .action-btn.primary:hover { background: #28285a; border-color: #8090e0; }
+
+    .action-btn.success {
+      border: 2px solid #40a060;
+      background: #102010;
+      color: #80e0a0;
+    }
+    .action-btn.success:hover { background: #1a3020; border-color: #60e080; }
+
+    .action-btn.danger {
+      border: 2px solid #a04040;
+      background: #2a1010;
+      color: #e08080;
+    }
+    .action-btn.danger:hover { background: #3a1818; border-color: #e06060; }
+
+    /* ── 캔버스 컨테이너 ── */
+    #canvas-area {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 12px;
+      background: #080810;
+    }
+
+    #map-canvas {
+      cursor: crosshair;
+      image-rendering: pixelated;
+      display: block;
+      touch-action: none;
+    }
+
+    /* ── 상태바 ── */
+    #statusbar {
+      background: rgba(10, 10, 25, 0.95);
+      border-top: 1px solid #2a2a4a;
+      padding: 5px 12px;
+      font-size: 11px;
+      color: #6060a0;
+      flex-shrink: 0;
+    }
+
+    /* ── 모달 ── */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal-overlay.visible { display: flex; }
+
+    #modal-box {
+      background: rgba(12, 12, 28, 0.98);
+      border: 2px solid #4a4a8a;
+      border-radius: 10px;
+      padding: 20px;
+      min-width: 320px;
+      max-width: 90vw;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #modal-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #c0c0f0;
+    }
+
+    #modal-json {
+      flex: 1;
+      background: #080818;
+      border: 1px solid #3a3a6a;
+      border-radius: 4px;
+      color: #a0e0a0;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 8px;
+      resize: vertical;
+      min-height: 160px;
+      max-height: 50vh;
+      overflow: auto;
+      white-space: pre;
+    }
+
+    #modal-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    #modal-actions button {
+      flex: 1;
+      min-height: 36px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #modal-copy-btn {
+      border: 2px solid #40a060;
+      background: #102010;
+      color: #80e0a0;
+    }
+    #modal-copy-btn:hover { background: #1a3020; }
+
+    #modal-download-btn {
+      border: 2px solid #4060c0;
+      background: #18183a;
+      color: #c0c0f0;
+    }
+    #modal-download-btn:hover { background: #28285a; }
+
+    #modal-close-btn {
+      border: 2px solid #3a3a6a;
+      background: #12122a;
+      color: #7070a0;
+    }
+    #modal-close-btn:hover { background: #1e1e3e; color: #c0c0e0; }
+
+    #error-msg {
+      color: #e06060;
+      font-size: 12px;
+      min-height: 16px;
+    }
+
+    /* ── 반응형: 좁은 화면 ── */
+    @media (max-width: 560px) {
+      #editor-layout { flex-direction: column; }
+      #sidebar {
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px;
+        border-right: none;
+        border-bottom: 1px solid #2a2a4a;
+        overflow-y: visible;
+      }
+      #sidebar > * { flex: 1 0 140px; }
+      #canvas-area { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>XenoNest — 맵 에디터</h1>
+
+  <div id="editor-layout">
+
+    <!-- ── 사이드바 ── -->
+    <div id="sidebar">
+
+      <!-- 스테이지 정보 -->
+      <div>
+        <div class="section-title">스테이지 정보</div>
+        <div class="field-row">
+          <label>이름</label>
+          <input type="text" id="stage-name" value="새 스테이지" maxlength="32" />
+        </div>
+        <div class="field-row">
+          <label>ID</label>
+          <input type="number" id="stage-id" value="1" min="0" max="999" step="1" />
+        </div>
+      </div>
+
+      <!-- 맵 크기 -->
+      <div>
+        <div class="section-title">맵 크기</div>
+        <div class="field-row">
+          <label>cols</label>
+          <input type="number" id="map-cols" value="20" min="5" max="60" step="1" />
+        </div>
+        <div class="field-row">
+          <label>rows</label>
+          <input type="number" id="map-rows" value="28" min="5" max="80" step="1" />
+        </div>
+        <button class="action-btn primary" id="resize-btn" style="margin-top:4px">맵 크기 적용</button>
+      </div>
+
+      <!-- NEST_ZONE 설정 -->
+      <div>
+        <div class="section-title">NEST_ZONE (2×2)</div>
+        <div class="field-row">
+          <label>colMin</label>
+          <input type="number" id="nz-col-min" value="9" min="0" step="1" />
+        </div>
+        <div class="field-row">
+          <label>colMax</label>
+          <input type="number" id="nz-col-max" value="10" min="0" step="1" />
+        </div>
+        <div class="field-row">
+          <label>rowMin</label>
+          <input type="number" id="nz-row-min" value="3" min="0" step="1" />
+        </div>
+        <div class="field-row">
+          <label>rowMax</label>
+          <input type="number" id="nz-row-max" value="4" min="0" step="1" />
+        </div>
+      </div>
+
+      <!-- 타일 팔레트 -->
+      <div>
+        <div class="section-title">타일 팔레트</div>
+        <div id="palette">
+          <button class="palette-btn selected" data-tile="0">
+            <span class="palette-swatch" style="background:#2e2616"></span>
+            <span>EMPTY (0) — 건설 가능</span>
+          </button>
+          <button class="palette-btn" data-tile="12">
+            <span class="palette-swatch" style="background:#3a3a3a"></span>
+            <span>FLOOR_NOBUILD (12)</span>
+          </button>
+          <button class="palette-btn" data-tile="1">
+            <span class="palette-swatch" style="background:#606060"></span>
+            <span>BLOCKED (1) — 외벽</span>
+          </button>
+          <button class="palette-btn" data-tile="2">
+            <span class="palette-swatch" style="background:#8b2000"></span>
+            <span>ENTRANCE (2)</span>
+          </button>
+          <button class="palette-btn" data-tile="9">
+            <span class="palette-swatch" style="background:#c05010"></span>
+            <span>SPAWN (9)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 내보내기 -->
+      <div>
+        <div class="section-title">내보내기</div>
+        <div id="error-msg"></div>
+        <button class="action-btn success" id="export-btn">JSON 내보내기</button>
+      </div>
+
+      <!-- 유틸리티 -->
+      <div>
+        <div class="section-title">유틸리티</div>
+        <button class="action-btn danger" id="clear-btn">맵 초기화</button>
+      </div>
+
+    </div>
+
+    <!-- ── 캔버스 영역 ── -->
+    <div id="canvas-area">
+      <canvas id="map-canvas"></canvas>
+    </div>
+
+  </div>
+
+  <div id="statusbar" id="statusbar">타일을 클릭하거나 드래그하여 페인팅하세요. | 선택: EMPTY (0)</div>
+
+  <!-- JSON 내보내기 모달 -->
+  <div id="modal-overlay">
+    <div id="modal-box">
+      <div id="modal-title">JSON 내보내기 결과</div>
+      <pre id="modal-json"></pre>
+      <div id="modal-actions">
+        <button id="modal-copy-btn">클립보드 복사</button>
+        <button id="modal-download-btn">파일 다운로드</button>
+        <button id="modal-close-btn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ── 타일 정의 ──────────────────────────────────────────────────────────────
+    const TILE_DEFS = {
+      0:  { name: 'EMPTY',         color: '#2e2616' },
+      1:  { name: 'BLOCKED',       color: '#606060' },
+      2:  { name: 'ENTRANCE',      color: '#8b2000' },
+      9:  { name: 'SPAWN',         color: '#c05010' },
+      12: { name: 'FLOOR_NOBUILD', color: '#3a3a3a' },
+    };
+
+    // 기본 색상 (건물 타일 등 에디터에서 안 쓰는 타일)
+    function getTileColor(t) {
+      return (TILE_DEFS[t] && TILE_DEFS[t].color) || '#1a1a2a';
+    }
+
+    const TILE_SIZE = 24; // px (에디터용 — 게임과 무관)
+
+    // ── 상태 ───────────────────────────────────────────────────────────────────
+    let cols = 20;
+    let rows = 28;
+    let grid = [];          // grid[row][col] = tileId
+    let selectedTile = 0;
+    let painting = false;
+
+    // ── DOM 참조 ───────────────────────────────────────────────────────────────
+    const canvas    = document.getElementById('map-canvas');
+    const ctx       = canvas.getContext('2d');
+    const statusbar = document.getElementById('statusbar');
+    const errorMsg  = document.getElementById('error-msg');
+
+    // ── 맵 초기화 ──────────────────────────────────────────────────────────────
+    function initGrid(c, r) {
+      cols = c;
+      rows = r;
+      grid = Array.from({ length: rows }, () => Array(cols).fill(0));
+      canvas.width  = cols * TILE_SIZE;
+      canvas.height = rows * TILE_SIZE;
+      renderAll();
+    }
+
+    // ── 렌더링 ─────────────────────────────────────────────────────────────────
+    function renderAll() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          drawTile(c, r);
+        }
+      }
+      drawNestZoneOverlay();
+    }
+
+    function drawTile(c, r) {
+      const t = grid[r][c];
+      const x = c * TILE_SIZE;
+      const y = r * TILE_SIZE;
+
+      ctx.fillStyle = getTileColor(t);
+      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+      // 그리드 선
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+
+      // 특수 타일 표식
+      if (t === 2) {
+        // ENTRANCE: 붉은 화살표
+        ctx.fillStyle = '#ff4040';
+        ctx.font = `bold ${TILE_SIZE - 8}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('▼', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+      } else if (t === 9) {
+        // SPAWN: 해골
+        ctx.font = `${TILE_SIZE - 8}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💀', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+      }
+    }
+
+    function drawNestZoneOverlay() {
+      const colMin = parseInt(document.getElementById('nz-col-min').value, 10) || 0;
+      const colMax = parseInt(document.getElementById('nz-col-max').value, 10) || 0;
+      const rowMin = parseInt(document.getElementById('nz-row-min').value, 10) || 0;
+      const rowMax = parseInt(document.getElementById('nz-row-max').value, 10) || 0;
+
+      if (colMax < colMin || rowMax < rowMin) return;
+
+      const x = colMin * TILE_SIZE;
+      const y = rowMin * TILE_SIZE;
+      const w = (colMax - colMin + 1) * TILE_SIZE;
+      const h = (rowMax - rowMin + 1) * TILE_SIZE;
+
+      ctx.fillStyle = 'rgba(140, 50, 220, 0.30)';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = 'rgba(180, 80, 255, 0.80)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+
+      ctx.fillStyle = 'rgba(200, 140, 255, 0.85)';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText('NEST', x + w / 2, y + 2);
+    }
+
+    // ── 좌표 변환 ──────────────────────────────────────────────────────────────
+    function pointerToTile(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width  / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const px = (e.clientX - rect.left) * scaleX;
+      const py = (e.clientY - rect.top)  * scaleY;
+      return {
+        col: Math.floor(px / TILE_SIZE),
+        row: Math.floor(py / TILE_SIZE),
+      };
+    }
+
+    function paintAt(col, row) {
+      if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+      if (grid[row][col] === selectedTile) return;
+      grid[row][col] = selectedTile;
+      drawTile(col, row);
+      drawNestZoneOverlay(); // NEST 존 오버레이 재렌더
+    }
+
+    // ── 포인터 이벤트 (마우스 + 터치 통합) ────────────────────────────────────
+    canvas.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      painting = true;
+      canvas.setPointerCapture(e.pointerId);
+      const t = pointerToTile(e);
+      paintAt(t.col, t.row);
+      updateStatus(t.col, t.row);
+    });
+
+    canvas.addEventListener('pointermove', e => {
+      e.preventDefault();
+      const t = pointerToTile(e);
+      updateStatus(t.col, t.row);
+      if (!painting) return;
+      paintAt(t.col, t.row);
+    });
+
+    canvas.addEventListener('pointerup', e => {
+      e.preventDefault();
+      painting = false;
+    });
+
+    canvas.addEventListener('pointercancel', () => {
+      painting = false;
+    });
+
+    function updateStatus(col, row) {
+      const t = (col >= 0 && col < cols && row >= 0 && row < rows) ? grid[row][col] : -1;
+      const tileName = t >= 0 ? (TILE_DEFS[t] ? TILE_DEFS[t].name : `UNKNOWN(${t})`) : '-';
+      statusbar.textContent =
+        `col: ${col}, row: ${row} | 현재 타일: ${tileName} | 선택: ${TILE_DEFS[selectedTile].name} (${selectedTile})`;
+    }
+
+    // ── 팔레트 선택 ────────────────────────────────────────────────────────────
+    document.querySelectorAll('.palette-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedTile = parseInt(btn.dataset.tile, 10);
+      });
+    });
+
+    // ── 맵 크기 적용 ───────────────────────────────────────────────────────────
+    document.getElementById('resize-btn').addEventListener('click', () => {
+      const newCols = Math.max(5, Math.min(60, parseInt(document.getElementById('map-cols').value, 10) || 20));
+      const newRows = Math.max(5, Math.min(80, parseInt(document.getElementById('map-rows').value, 10) || 28));
+      if (newCols === cols && newRows === rows) return;
+      if (!confirm(`맵 크기를 ${newCols}×${newRows}로 변경하시겠습니까? 기존 내용이 초기화됩니다.`)) return;
+      document.getElementById('map-cols').value = newCols;
+      document.getElementById('map-rows').value = newRows;
+      initGrid(newCols, newRows);
+    });
+
+    // ── NEST_ZONE 입력 변경 → 오버레이 갱신 ──────────────────────────────────
+    ['nz-col-min', 'nz-col-max', 'nz-row-min', 'nz-row-max'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        renderAll();
+      });
+    });
+
+    // ── 맵 초기화 ──────────────────────────────────────────────────────────────
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      if (!confirm('맵을 초기화하시겠습니까?')) return;
+      initGrid(cols, rows);
+    });
+
+    // ── JSON 내보내기 ──────────────────────────────────────────────────────────
+    document.getElementById('export-btn').addEventListener('click', () => {
+      errorMsg.textContent = '';
+
+      // 유효성 검사
+      const entranceTiles = [];
+      const spawnTiles = [];
+      let nestZoneHasBlocked = false;
+
+      const colMin = parseInt(document.getElementById('nz-col-min').value, 10);
+      const colMax = parseInt(document.getElementById('nz-col-max').value, 10);
+      const rowMin = parseInt(document.getElementById('nz-row-min').value, 10);
+      const rowMax = parseInt(document.getElementById('nz-row-max').value, 10);
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const t = grid[r][c];
+          if (t === 2) entranceTiles.push({ col: c, row: r });
+          if (t === 9) spawnTiles.push({ col: c, row: r });
+          if (t === 1) {
+            // BLOCKED가 nestZone 안에 있는지 확인
+            if (c >= colMin && c <= colMax && r >= rowMin && r <= rowMax) {
+              nestZoneHasBlocked = true;
+            }
+          }
+        }
+      }
+
+      const errors = [];
+      if (entranceTiles.length === 0) errors.push('ENTRANCE(2) 타일이 최소 1개 필요합니다.');
+      if (spawnTiles.length === 0)    errors.push('SPAWN(9) 타일이 최소 1개 필요합니다.');
+      if (nestZoneHasBlocked)         errors.push('NEST_ZONE 영역 안에 BLOCKED(1) 타일이 있습니다.');
+
+      if (errors.length > 0) {
+        errorMsg.textContent = errors.join(' / ');
+        return;
+      }
+
+      // JSON 생성
+      const stageId   = parseInt(document.getElementById('stage-id').value, 10) || 1;
+      const stageName = document.getElementById('stage-name').value.trim() || '새 스테이지';
+
+      const payload = {
+        id:   stageId,
+        name: stageName,
+        cols,
+        rows,
+        rawGrid: grid.map(row => row.slice()),
+        baseEntrance: entranceTiles,
+        nestZone: { colMin, colMax, rowMin, rowMax },
+        spawnPoints: spawnTiles,
+      };
+
+      const json = JSON.stringify(payload, null, 2);
+      document.getElementById('modal-json').textContent = json;
+      document.getElementById('modal-overlay').classList.add('visible');
+
+      // 다운로드 버튼에 파일명 설정
+      const fileName = `stage_${stageId}_${stageName.replace(/\s+/g, '_')}.json`;
+      document.getElementById('modal-download-btn').dataset.filename = fileName;
+      document.getElementById('modal-download-btn').dataset.content  = json;
+    });
+
+    // ── 모달 버튼 ──────────────────────────────────────────────────────────────
+    document.getElementById('modal-copy-btn').addEventListener('click', () => {
+      const text = document.getElementById('modal-json').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        document.getElementById('modal-copy-btn').textContent = '복사 완료!';
+        setTimeout(() => {
+          document.getElementById('modal-copy-btn').textContent = '클립보드 복사';
+        }, 1500);
+      }).catch(() => {
+        // clipboard API 미지원 fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity  = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        document.getElementById('modal-copy-btn').textContent = '복사 완료!';
+        setTimeout(() => {
+          document.getElementById('modal-copy-btn').textContent = '클립보드 복사';
+        }, 1500);
+      });
+    });
+
+    document.getElementById('modal-download-btn').addEventListener('click', e => {
+      const btn  = e.currentTarget;
+      const blob = new Blob([btn.dataset.content], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = btn.dataset.filename || 'stage.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('modal-close-btn').addEventListener('click', () => {
+      document.getElementById('modal-overlay').classList.remove('visible');
+    });
+
+    // 모달 외부 클릭 시 닫기
+    document.getElementById('modal-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('modal-overlay')) {
+        document.getElementById('modal-overlay').classList.remove('visible');
+      }
+    });
+
+    // ── 최초 초기화 ────────────────────────────────────────────────────────────
+    initGrid(cols, rows);
+  </script>
+</body>
+</html>

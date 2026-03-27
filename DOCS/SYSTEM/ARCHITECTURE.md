@@ -2,8 +2,8 @@
 
 > **카테고리:** SYSTEM
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-24 (Portrait 맵 재설계: 맵 비율 0.71:1, resizeCanvas portrait 분기, positionNestPopup 좌표 계산 개선, resize 핸들러 positionNestPopup 재호출 추가)
-> **관련 기능:** 게임 루프, 상태 관리, 렌더링 파이프라인
+> **최종 갱신:** 2026-03-28 (스테이지 시스템 도입: G.stageConfig 필드 추가, 전역 상수 NEST_ZONE/BASE_ENTRANCE/ENTRANCES 제거, STAGES 배열 및 createGrid/initGame 시그니처 변경, 맵 에디터 모듈 추가)
+> **관련 기능:** 게임 루프, 상태 관리, 렌더링 파이프라인, 스테이지 시스템
 
 ## 개요
 
@@ -29,7 +29,8 @@ XenoNest는 외부 라이브러리 의존성 없이 바닐라 JavaScript ES6+와
 ```
 index.html
 ├── style.css              (레이아웃 + HUD + 패널 스타일)
-└── game.js                (전체 게임 로직, ~1988줄)
+├── game.js                (전체 게임 로직)
+└── map-editor.html        (독립 실행형 맵 에디터 — 스테이지 rawGrid JSON 생성 도구)
     │
     ├── 상수 정의           (TILE_SIZE, COLS, ROWS, BUILDING_DEFS, ENEMY_DEFS, ...)
     ├── G 객체              (단일 게임 상태 저장소)
@@ -128,7 +129,8 @@ IDLE
 ```javascript
 G = {
   state,            // 현재 게임 상태 (STATE enum)
-  grid,             // 12×16 타일 타입 배열
+  grid,             // 타일 타입 2D 배열 (stageConfig.rows × stageConfig.cols)
+  stageConfig,      // 현재 스테이지 설정 객체 { id, name, cols, rows, rawGrid, baseEntrance, nestZone, spawnPoints }
   buildings,        // 건물 객체 배열
   enemies,          // 적 객체 배열
   projectiles,      // 타워 투사체 배열
@@ -156,6 +158,11 @@ G = {
   canvasScale,      // CSS 표시 축소 비율 (터치 좌표 보정용)
   _loopRunning,     // 루프 중복 시작 방지 플래그
 }
+```
+
+> **스테이지 시스템 변경:** `G.stageConfig`가 추가되었다. 기존에 전역 상수로 관리되던 `NEST_ZONE`, `BASE_ENTRANCE`, `ENTRANCES`가 제거되고, 해당 데이터는 `G.stageConfig.nestZone`, `G.stageConfig.baseEntrance`, `G.stageConfig.spawnPoints`로 이전되었다. 모든 참조 코드는 `G.stageConfig.*` 경로를 사용해야 한다. `G.grid`의 크기도 고정 12×16 또는 20×28이 아닌 `stageConfig.cols × stageConfig.rows`로 동적으로 결정된다.
+
+```javascript
 ```
 
 ---
@@ -204,11 +211,11 @@ dt = Math.min((timestamp - G.prevTime) / 1000, DT_MAX);
 
 | 섹션 | 내용 |
 |------|------|
-| 1 | 상수 정의 (TILE_SIZE, BUILDING_DEFS, ENEMY_DEFS, SPAWN_SCHEDULE 등) |
+| 1 | 상수 정의 (TILE_SIZE, BUILDING_DEFS, ENEMY_DEFS, SPAWN_SCHEDULE, STAGES 배열 등) |
 | 2 | 그리드 ↔ 픽셀 좌표 변환 (`tileToPixel`, `pixelToTile`) |
-| 3 | 맵 초기화 (`createGrid`) |
+| 3 | 맵 초기화 (`createGrid(stageConfig)`) |
 | 4 | 직선 경로 장애물 탐색 (`findBuildingOnPath`) |
-| 5 | G 객체 초기화 (`initGame`) |
+| 5 | G 객체 초기화 (`initGame(stageId)`) |
 | 6 | 건물 생성/제거 헬퍼 (`createBuilding`, `removeBuilding`, `startUpgrade`) |
 | 7 | 적 생성 헬퍼 (`spawnEnemy`) |
 | 8 | Canvas & offscreen 캐시 설정 (`resizeCanvas`, `dirtyTerrain`, `clampCamera`) |
@@ -222,3 +229,5 @@ dt = Math.min((timestamp - G.prevTime) / 1000, DT_MAX);
 | 16 | 게임 업데이트 로직 (`update`, `updateWave`, `updateEnemies`, `updateTowers`, ...) |
 | 17 | 건물 정보/관리 패널 UI (`openBuildingPanel`, `closeBuildingPanel`) |
 | 18 | 메인 게임 루프 (`gameLoop`) + 초기화 진입점 |
+
+> **스테이지 시스템 변경:** 섹션 1에 `STAGES` 배열이 추가되었다. 섹션 3의 `createGrid()`는 이전 `rawGrid` 고정 참조 대신 `stageConfig` 객체를 인수로 받아 rawGrid를 깊은 복사한다. 섹션 5의 `initGame()`은 `stageId` 인수(기본값 0)를 받아 해당 스테이지 설정을 `G.stageConfig`에 저장한다. `stageId`가 범위를 초과하면 `STAGES[0]`으로 폴백한다.

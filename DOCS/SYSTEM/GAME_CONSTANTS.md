@@ -2,8 +2,8 @@
 
 > **카테고리:** SYSTEM
 > **최초 작성:** 2026-03-23
-> **최종 갱신:** 2026-03-24 (Portrait 맵 재설계: COLS 20, ROWS 28, wallProfile 재정의, NEST_ZONE/BASE_ENTRANCE/ENTRANCES 좌표 갱신, resizeCanvas portrait 분기, portrait CSS 보강)
-> **관련 기능:** 맵, 게임 루프, 건물, 적, 스폰, 글로벌 업그레이드
+> **최종 갱신:** 2026-03-28 (스테이지 시스템 도입: FLOOR_NOBUILD(12) 타일 추가, BASE_ENTRANCE/NEST_ZONE/ENTRANCES 전역 상수 제거 → G.stageConfig.* 로 이전)
+> **관련 기능:** 맵, 게임 루프, 건물, 적, 스폰, 글로벌 업그레이드, 스테이지 시스템
 
 ## 개요
 
@@ -40,10 +40,13 @@
 | `7` | `SPORE` | 산성 포자 (Phase 3 신규) |
 | `8` | `REPAIR_BLD` | 구조물 수리 건물 (Phase 3 신규) |
 | `9` | `SPAWN` | 적 스폰 지점 (Phase 6 신규) |
+| `12` | `FLOOR_NOBUILD` | 건물 배치 불가 바닥 (스테이지 시스템 신규) |
 
 > **Phase 3 변경:** 기존 `5: TOWER`가 `5: THORN`으로 교체되었다. TOWER 타일 값은 더 이상 사용되지 않는다. SPORE(7)와 REPAIR_BLD(8)가 신규 추가되었다.
 
 > **Phase 6 변경:** `SPAWN(9)` 타일이 추가되었다. 기존 ENTRANCE 타일과 별개로, 맵 가장자리의 적 스폰 지점을 명시적으로 구분한다. SPAWN 타일에는 해골(💀) 마크가 렌더링되며 배경색은 `#1a0808`(어두운 빨간색)이다.
+
+> **스테이지 시스템 변경:** `FLOOR_NOBUILD(12)` 타일이 추가되었다. `EMPTY(0)`과 동일하게 적 BFS 경로 탐색에 포함되며(통과 가능), 건물 배치는 허용되지 않는다. `renderTerrain()`에서 `#3a3a3a` 어두운 회색으로 렌더링된다. 맵 에디터에서 팔레트 항목으로 제공되며, 스테이지 rawGrid에 직접 지정하여 사용한다.
 
 ---
 

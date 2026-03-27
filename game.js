@@ -32,18 +32,19 @@ const STATE = Object.freeze({
 
 // 타일 타입
 const TILE = Object.freeze({
-  EMPTY:      0,  // 건물 배치 가능한 빈 공간
-  BLOCKED:    1,  // 배치 불가 (맵 외벽, 장식 등)
-  ENTRANCE:   2,  // 적 입구
-  NEST:       3,  // 핵심 둥지 (배치 후)
-  WALL:       4,  // 성벽 (BFS 통행 불가)
-  THORN:      5,  // 가시 촉수 (물리 근거리 공격)
-  RESOURCE:   6,  // 자원 건물
-  SPORE:      7,  // 산성 포자 (산성 원거리 + 슬로우)
-  REPAIR_BLD: 8,  // 구조물 수리 (범위 수리, 공격 없음)
-  SPAWN:      9,  // 적 스폰 지점 (맵 가장자리)
-  BALLISTA:  10,  // 발리스타 (물리 원거리, ranged 적 우선)
-  RUPTURE:   11,  // Rupture Pod (마법 원거리, 공중 유닛 전용)
+  EMPTY:        0,  // 건물 배치 가능한 빈 공간
+  BLOCKED:      1,  // 배치 불가 (맵 외벽, 장식 등)
+  ENTRANCE:     2,  // 적 입구
+  NEST:         3,  // 핵심 둥지 (배치 후)
+  WALL:         4,  // 성벽 (BFS 통행 불가)
+  THORN:        5,  // 가시 촉수 (물리 근거리 공격)
+  RESOURCE:     6,  // 자원 건물
+  SPORE:        7,  // 산성 포자 (산성 원거리 + 슬로우)
+  REPAIR_BLD:   8,  // 구조물 수리 (범위 수리, 공격 없음)
+  SPAWN:        9,  // 적 스폰 지점 (맵 가장자리)
+  BALLISTA:    10,  // 발리스타 (물리 원거리, ranged 적 우선)
+  RUPTURE:     11,  // Rupture Pod (마법 원거리, 공중 유닛 전용)
+  FLOOR_NOBUILD: 12, // 통행 가능·건설 불가 (통로, 광장 등)
 });
 
 // 건물 정의: 비용, 건설 시간, 타일 타입, 업그레이드 정보
@@ -303,9 +304,6 @@ const COUNTDOWN_DURATION = 20;  // 초
 // NEST_BUILD_TIME는 BUILDING_DEFS.NEST.buildTime으로 관리한다 (5초)
 const DT_MAX             = 0.1; // 초, 탭 전환 후 큰 dt 클램핑
 
-// 핵심 둥지 배치 가능 영역 — COLS=20 기준 중심(col 9~10), 상단부(row 3~4)
-const NEST_ZONE = Object.freeze({ colMin: 9, colMax: 10, rowMin: 2, rowMax: 3 });
-
 // NEST 레벨별 최대 건물 배치 수 (NEST 제외)
 const NEST_BUILD_CAP = Object.freeze([10, 20, 40]); // Lv.1=10, Lv.2=20, Lv.3=40
 
@@ -313,27 +311,100 @@ const NEST_BUILD_CAP = Object.freeze([10, 20, 40]); // Lv.1=10, Lv.2=20, Lv.3=40
 const NEST_RESOURCE_INTERVAL = 8;  // 초마다 생산
 const NEST_RESOURCE_AMOUNT = Object.freeze([5, 10, 20]); // Lv.1=5, Lv.2=10, Lv.3=20
 
-// 기지 입구 좌표 — WALL 제거 시 ENTRANCE 복원용 (COLS=20 기준 중심 col 9~10)
-const BASE_ENTRANCE = Object.freeze([{ col: 9, row: 17 }, { col: 10, row: 17 }]);
-
 // 초기 자원
 const INITIAL_RESOURCE = 200;
 
-// 적 스폰 지점 — 4방향 (우측, 우하, 좌하, 좌측)
-const ENTRANCES = Object.freeze([
-  // 3시 (우측)
-  { col: COLS - 2, row: Math.floor(ROWS / 2) },
-  { col: COLS - 2, row: Math.floor(ROWS / 2) + 1 },
-  // 5시 (우하)
-  { col: Math.floor(COLS * 0.7), row: ROWS - 2 },
-  { col: Math.floor(COLS * 0.7) + 1, row: ROWS - 2 },
-  // 7시 (좌하)
-  { col: Math.floor(COLS * 0.3), row: ROWS - 2 },
-  { col: Math.floor(COLS * 0.3) - 1, row: ROWS - 2 },
-  // 9시 (좌측)
-  { col: 1, row: Math.floor(ROWS / 2) },
-  { col: 1, row: Math.floor(ROWS / 2) + 1 },
-]);
+// ── 스테이지 정의 ─────────────────────────────────────────────────────────────
+// STAGES[0].rawGrid: 기존 createGrid()가 생성하던 맵과 완전히 동일한 결과를
+// IIFE로 런타임에 1회 생성한다. wallProfile 로직을 단 한 곳에서만 관리할 수 있어
+// 유지보수성이 하드코딩 방식보다 높다.
+const STAGES = (() => {
+  // ── Stage 0 rawGrid 생성 (기존 createGrid 로직 그대로) ──
+  const s0cols = 20, s0rows = 28;
+
+  // Stage 0 적 스폰 지점 — 4방향 (우측, 우하, 좌하, 좌측)
+  const s0spawnPoints = Object.freeze([
+    // 3시 (우측)
+    { col: s0cols - 2, row: Math.floor(s0rows / 2) },
+    { col: s0cols - 2, row: Math.floor(s0rows / 2) + 1 },
+    // 5시 (우하)
+    { col: Math.floor(s0cols * 0.7),     row: s0rows - 2 },
+    { col: Math.floor(s0cols * 0.7) + 1, row: s0rows - 2 },
+    // 7시 (좌하)
+    { col: Math.floor(s0cols * 0.3),     row: s0rows - 2 },
+    { col: Math.floor(s0cols * 0.3) - 1, row: s0rows - 2 },
+    // 9시 (좌측)
+    { col: 1, row: Math.floor(s0rows / 2) },
+    { col: 1, row: Math.floor(s0rows / 2) + 1 },
+  ]);
+
+  // Stage 0 기지 입구
+  const s0baseEntrance = Object.freeze([{ col: 9, row: 17 }, { col: 10, row: 17 }]);
+
+  // rawGrid 생성 — IIFE 내부이므로 TILE 상수 사용 가능
+  const s0grid = Array.from({length: s0rows}, () => Array(s0cols).fill(0)); // EMPTY=0
+
+  // 맵 최외곽 벽
+  for (let c = 0; c < s0cols; c++) {
+    s0grid[0][c] = 1; s0grid[s0rows - 1][c] = 1; // BLOCKED=1
+  }
+  for (let r = 0; r < s0rows; r++) {
+    s0grid[r][0] = 1; s0grid[r][s0cols - 1] = 1;
+  }
+
+  // 내부 기지 외벽 — wallProfile
+  const wallProfile = [
+    [1,  7, 12], [2,  5, 14], [3,  4, 15], [4,  3, 16],
+    [5,  3, 16], [6,  3, 16], [7,  3, 16], [8,  3, 16],
+    [9,  3, 16], [10, 3, 16], [11, 3, 16], [12, 3, 16],
+    [13, 4, 15], [14, 5, 14], [15, 6, 13], [16, 7, 12],
+    [17, 8, 11],
+  ];
+
+  for (let i = 0; i < wallProfile.length; i++) {
+    const [row, left, right] = wallProfile[i];
+    s0grid[row][left]  = 1;
+    s0grid[row][right] = 1;
+    if (i > 0) {
+      const [prevRow, prevLeft, prevRight] = wallProfile[i - 1];
+      if (left < prevLeft) {
+        for (let c = left; c < prevLeft; c++) s0grid[prevRow][c] = 1;
+      } else if (left > prevLeft) {
+        for (let c = prevLeft; c <= left; c++) s0grid[row][c] = 1;
+      }
+      if (right > prevRight) {
+        for (let c = prevRight + 1; c <= right; c++) s0grid[prevRow][c] = 1;
+      } else if (right < prevRight) {
+        for (let c = right; c <= prevRight; c++) s0grid[row][c] = 1;
+      }
+    }
+  }
+
+  // 상단 수평벽
+  for (let c = 7; c <= 12; c++) s0grid[1][c] = 1;
+  s0grid[17][8] = 1; s0grid[17][11] = 1;
+
+  // 기지 입구 — ENTRANCE=2
+  s0grid[17][9] = 2; s0grid[17][10] = 2;
+
+  // 적 스폰 지점 — SPAWN=9
+  for (const e of s0spawnPoints) {
+    s0grid[e.row][e.col] = 9;
+  }
+
+  return [
+    {
+      id: 0,
+      name: '기본 맵',
+      cols: s0cols,
+      rows: s0rows,
+      rawGrid: s0grid,
+      baseEntrance: s0baseEntrance,
+      nestZone: Object.freeze({ colMin: 9, colMax: 10, rowMin: 2, rowMax: 3 }),
+      spawnPoints: s0spawnPoints,
+    },
+  ];
+})();
 
 
 // ── 2. 그리드 좌표 ↔ 픽셀 좌표 변환 ─────────────────────────────────────────
@@ -403,91 +474,11 @@ function hitsBlockedTile(px, py, rad) {
 // ── 3. 맵 초기화 ─────────────────────────────────────────────────────────────
 
 /**
- * 30×24 그리드 생성.
- * 중앙에 불규칙 외벽으로 둘러싸인 내부 기지 (~120타일 건설 공간)
- * 기지 하단 중앙: 2타일 폭 입구 (WALL로 봉쇄 가능)
- * 외벽은 모든 벽 타일이 상하좌우(4방향)로 연결되도록 설계 — 대각선만 연결되는 틈 제거
+ * stageConfig.rawGrid를 깊은 복사하여 그리드를 생성한다.
+ * rawGrid는 STAGES 정의 시 이미 완성된 상태이므로 여기서는 복사만 수행한다.
  */
-function createGrid() {
-  const grid = Array.from({length: ROWS}, () => Array(COLS).fill(TILE.EMPTY));
-
-  // 맵 최외곽 벽
-  for (let c = 0; c < COLS; c++) { grid[0][c] = TILE.BLOCKED; grid[ROWS - 1][c] = TILE.BLOCKED; }
-  for (let r = 0; r < ROWS; r++) { grid[r][0] = TILE.BLOCKED; grid[r][COLS - 1] = TILE.BLOCKED; }
-
-  // 내부 기지 외벽 — 행별 좌측/우측 경계 정의 (COLS=20 기준, 중심 col 9~10)
-  // 규칙: 인접 행 간 열 번호 차이 ≤ 2, 차이 발생 시 중간 타일도 채움
-  // 입구: row 18, col 9~10 (하단 중앙)
-  // row 19~27은 적 진입로 — 기지 외벽 없음
-  const wallProfile = [
-    // [row, leftCol, rightCol]
-    [1,  7, 12],
-    [2,  5, 14],
-    [3,  4, 15],
-    [4,  3, 16],
-    [5,  3, 16],
-    [6,  3, 16],
-    [7,  3, 16],
-    [8,  3, 16],
-    [9,  3, 16],
-    [10, 3, 16],
-    [11, 3, 16],
-    [12, 3, 16],
-    [13, 4, 15],
-    [14, 5, 14],
-    [15, 6, 13],
-    [16, 7, 12],
-    [17, 8, 11],  // 입구 row — col 9,10은 ENTRANCE
-  ];
-
-  for (let i = 0; i < wallProfile.length; i++) {
-    const [row, left, right] = wallProfile[i];
-    // 좌벽
-    grid[row][left] = TILE.BLOCKED;
-    // 우벽
-    grid[row][right] = TILE.BLOCKED;
-
-    // 행 간 열 차이 보정 — 대각선 틈 방지
-    // 벽이 바깥으로 확장(left 감소 / right 증가)하면 이전 행을 채워야 내부가 보존된다.
-    // 벽이 안으로 수렴(left 증가 / right 감소)하면 현재 행을 채워야 틈이 막힌다.
-    if (i > 0) {
-      const [prevRow, prevLeft, prevRight] = wallProfile[i - 1];
-      // 좌벽
-      if (left < prevLeft) {
-        // 확장: 이전 행에 채움
-        for (let c = left; c < prevLeft; c++) grid[prevRow][c] = TILE.BLOCKED;
-      } else if (left > prevLeft) {
-        // 수렴: 현재 행에 채움
-        for (let c = prevLeft; c <= left; c++) grid[row][c] = TILE.BLOCKED;
-      }
-      // 우벽
-      if (right > prevRight) {
-        // 확장: 이전 행에 채움
-        for (let c = prevRight + 1; c <= right; c++) grid[prevRow][c] = TILE.BLOCKED;
-      } else if (right < prevRight) {
-        // 수렴: 현재 행에 채움
-        for (let c = right; c <= prevRight; c++) grid[row][c] = TILE.BLOCKED;
-      }
-    }
-  }
-
-  // 상단 수평벽: row 1 (col 7~12) — wallProfile row 1이 좌우벽이므로 사이 채움
-  for (let c = 7; c <= 12; c++) grid[1][c] = TILE.BLOCKED;
-  // row 17 하단벽 (입구 col 9,10 제외) — wallProfile 루프에서 left=8, right=11은 이미 채워지나
-  // ENTRANCE 덮어쓰기를 방지하기 위해 명시적으로 재확인
-  grid[17][8]  = TILE.BLOCKED;
-  grid[17][11] = TILE.BLOCKED;
-
-  // 기지 입구 — 2타일 폭 (WALL 2개로 봉쇄 가능)
-  grid[17][9]  = TILE.ENTRANCE;
-  grid[17][10] = TILE.ENTRANCE;
-
-  // 적 스폰 지점 — SPAWN 타일로 표시 (ENTRANCE와 별개)
-  for (const e of ENTRANCES) {
-    grid[e.row][e.col] = TILE.SPAWN;
-  }
-
-  return grid;
+function createGrid(stageConfig) {
+  return stageConfig.rawGrid.map(row => row.slice());
 }
 
 
@@ -575,10 +566,12 @@ function moveToward(e, tx, ty, dt) {
 
 let G = {}; // 게임 상태 단일 진실 공급원
 
-function initGame() {
+function initGame(stageId = 0) {
+  const stageConfig = STAGES[stageId] || STAGES[0];
   G = {
     state:        STATE.IDLE,
-    grid:         createGrid(),
+    stageConfig,
+    grid:         createGrid(stageConfig),
     buildings:    [],   // { id, type, col, row, hp, hpMax, buildTimer, built, upgrading, upgradeTimer, level, ... }
     enemies:      [],   // { id, type, x, y, hp, hpMax, speed, targetBldId, ... }
     projectiles:  [],   // { id, x, y, vx, vy, damage, targetId }
@@ -711,7 +704,7 @@ function removeBuilding(building) {
     for (let dc = 0; dc < bw; dc++) {
       const c = building.col + dc, r = building.row + dr;
       // 입구 위치에 WALL이 있었다면 ENTRANCE로 복원
-      const isEntrance = BASE_ENTRANCE.some(e => e.col === c && e.row === r);
+      const isEntrance = G.stageConfig.baseEntrance.some(e => e.col === c && e.row === r);
       G.grid[r][c] = isEntrance ? TILE.ENTRANCE : TILE.EMPTY;
     }
   }
@@ -841,8 +834,8 @@ function scaleEnemyStat(base) {
 
 function spawnEnemy(type, entranceIndex) {
   const def    = ENEMY_DEFS[type];
-  const idx    = entranceIndex % ENTRANCES.length;
-  const ent    = ENTRANCES[idx];
+  const idx    = entranceIndex % G.stageConfig.spawnPoints.length;
+  const ent    = G.stageConfig.spawnPoints[idx];
   const px     = tileToPixel(ent.col, ent.row);
   const id     = G.nextId++;
 
@@ -1129,15 +1122,16 @@ function onTileClicked(col, row) {
   // PLACING: 핵심 둥지 배치 대기 중 — 보라색 타일 아무 곳이나 터치 시 좌상단(14,3)에 자동 배치
   if (G.state === STATE.PLACING) {
     if (sel !== 'NEST') return;
-    // 보라색 영역(NEST_ZONE) 안이면 자동으로 좌상단 고정 좌표에 배치
-    if (!(col >= NEST_ZONE.colMin && col <= NEST_ZONE.colMax
-       && row >= NEST_ZONE.rowMin && row <= NEST_ZONE.rowMax)) {
+    // 보라색 영역(nestZone) 안이면 자동으로 좌상단 고정 좌표에 배치
+    const _nz = G.stageConfig.nestZone;
+    if (!(col >= _nz.colMin && col <= _nz.colMax
+       && row >= _nz.rowMin && row <= _nz.rowMax)) {
       showStatus('보라색 타일을 터치하여 둥지를 배치하세요');
       return;
     }
-    // 고정 배치 좌표: NEST_ZONE 좌상단
-    const placeCol = NEST_ZONE.colMin;
-    const placeRow = NEST_ZONE.rowMin;
+    // 고정 배치 좌표: nestZone 좌상단
+    const placeCol = _nz.colMin;
+    const placeRow = _nz.rowMin;
     // NEST 2×2: 4타일 모두 EMPTY인지 확인
     const nw = BUILDING_DEFS.NEST.w || 1, nh = BUILDING_DEFS.NEST.h || 1;
     for (let dr = 0; dr < nh; dr++) {
@@ -1185,8 +1179,8 @@ function onTileClicked(col, row) {
         return;
       }
       // 외벽 안에서만 건설 가능
-      // row 상한: BASE_ENTRANCE row 바로 위까지 (입구 row는 WALL 전용)
-      const entranceRow = BASE_ENTRANCE[0].row;
+      // row 상한: baseEntrance row 바로 위까지 (입구 row는 WALL 전용)
+      const entranceRow = G.stageConfig.baseEntrance[0].row;
       const isInsideBase = row >= 1 && row < entranceRow
         && G.distanceMap && G.distanceMap[row][col] < Infinity;
       const isEntrance = currentTile === TILE.ENTRANCE;
@@ -1220,6 +1214,11 @@ function onTileClicked(col, row) {
         return;
       }
 
+      if (currentTile === TILE.FLOOR_NOBUILD) {
+        showStatus('이 구역에는 건물을 배치할 수 없습니다.');
+        return;
+      }
+
       if (currentTile !== TILE.EMPTY) {
         showStatus('빈 공간에만 배치할 수 있습니다.');
         return;
@@ -1248,8 +1247,9 @@ function onTileClicked(col, row) {
 
 function isInNestZone(col, row) {
   const nw = BUILDING_DEFS.NEST.w || 1, nh = BUILDING_DEFS.NEST.h || 1;
-  return col >= NEST_ZONE.colMin && col + nw - 1 <= NEST_ZONE.colMax
-      && row >= NEST_ZONE.rowMin && row + nh - 1 <= NEST_ZONE.rowMax;
+  const nz = G.stageConfig.nestZone;
+  return col >= nz.colMin && col + nw - 1 <= nz.colMax
+      && row >= nz.rowMin && row + nh - 1 <= nz.rowMax;
 }
 
 
@@ -1529,7 +1529,10 @@ function renderTerrain() {
 
       // 타일 배경색 — 의사랜덤 노이즈로 단조로움 제거
       let bg;
-      if (t === TILE.EMPTY || t >= TILE.WALL) {
+      if (t === TILE.FLOOR_NOBUILD) {
+        // FLOOR_NOBUILD: 어두운 회색 (통행 가능·건설 불가 구역)
+        bg = '#3a3a3a';
+      } else if (t === TILE.EMPTY || (t >= TILE.WALL && t !== TILE.FLOOR_NOBUILD)) {
         // EMPTY 및 건물 타일: 약한 갈색 계열 노이즈
         const noise = Math.sin(c * 3.7 + r * 2.3) * Math.cos(c * 1.9 + r * 4.1);
         const brightness = Math.floor(noise * 8); // -8 ~ +8
@@ -1579,7 +1582,6 @@ function renderTerrain() {
         tc.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE / 3);
       }
 
-
       // 스폰 지점 표시 — 해골 마크
       if (t === TILE.SPAWN) {
         tc.font = 'bold 20px serif';
@@ -1589,11 +1591,12 @@ function renderTerrain() {
       }
 
       // 핵심 둥지 배치 가능 영역 하이라이트 (PLACING 상태에서만)
-      if (G.state === STATE.PLACING && t === TILE.EMPTY
-          && c >= NEST_ZONE.colMin && c <= NEST_ZONE.colMax
-          && r >= NEST_ZONE.rowMin && r <= NEST_ZONE.rowMax) {
-        tc.fillStyle = 'rgba(128, 50, 200, 0.18)';
-        tc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      if (G.state === STATE.PLACING && t === TILE.EMPTY) {
+        const _nz = G.stageConfig.nestZone;
+        if (c >= _nz.colMin && c <= _nz.colMax && r >= _nz.rowMin && r <= _nz.rowMax) {
+          tc.fillStyle = 'rgba(128, 50, 200, 0.18)';
+          tc.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        }
       }
 
       // 그리드 선: 건물 배치 모드(또는 건설 모드) 활성 시 표시
@@ -2357,8 +2360,8 @@ function updateWave(dt) {
       e.hpMax = Math.round(e.hpMax * 2.0);
     }
     spawnEnemy('NOVICE_HERO', 0);
-    for (let i = 0; i < 30; i++) spawnEnemy('WARRIOR', i % BASE_ENTRANCE.length);
-    for (let i = 0; i < 20; i++) spawnEnemy('MAGE', i % BASE_ENTRANCE.length);
+    for (let i = 0; i < 30; i++) spawnEnemy('WARRIOR', i % G.stageConfig.baseEntrance.length);
+    for (let i = 0; i < 20; i++) spawnEnemy('MAGE', i % G.stageConfig.baseEntrance.length);
     showStatus('보스 등장! 초보 용사와 부하들이 나타났다!', 5000);
     return;
   }
@@ -2404,7 +2407,7 @@ function spawnBatch(sched) {
     G.pendingSpawn[type] = want - actual;                   // 초과분 보류
 
     for (let i = 0; i < actual; i++) {
-      spawnEnemy(type, entranceRobin % ENTRANCES.length);
+      spawnEnemy(type, entranceRobin % G.stageConfig.spawnPoints.length);
       entranceRobin++;
     }
   }
@@ -2455,7 +2458,7 @@ function updateEnemies(dt) {
         if (e.stuckTimer >= 10) {
           // 재스폰: 현재 적 제거 후 동일 타입 새로 스폰
           e.dead = true;
-          spawnEnemy(e.type, Math.floor(Math.random() * BASE_ENTRANCE.length));
+          spawnEnemy(e.type, Math.floor(Math.random() * G.stageConfig.spawnPoints.length));
         }
       } else {
         e.stuckTimer = 0;
