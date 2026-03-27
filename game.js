@@ -43,6 +43,7 @@ const TILE = Object.freeze({
   REPAIR_BLD: 8,  // 구조물 수리 (범위 수리, 공격 없음)
   SPAWN:      9,  // 적 스폰 지점 (맵 가장자리)
   BALLISTA:  10,  // 발리스타 (물리 원거리, ranged 적 우선)
+  RUPTURE:   11,  // Rupture Pod (마법 원거리, 공중 유닛 전용)
 });
 
 // 건물 정의: 비용, 건설 시간, 타일 타입, 업그레이드 정보
@@ -66,6 +67,8 @@ const BUILDING_DEFS = Object.freeze({
   RESOURCE: { name: '자원건물',   cost: 40,  buildTime: 3,  tile: TILE.RESOURCE, icon: '💎', color: '#c0a020', hpMax: 100,  armorType: 'STRUCTURE',
               upgradeTime: [8, 9, 10, 11], upgradeCost: [150, 500, 1500, 3000, null] },
   BALLISTA: { name: '외골격 가시 타워', cost: 80,  buildTime: 4,  tile: TILE.BALLISTA, icon: '🏹', color: '#704020', hpMax: 90,   armorType: 'STRUCTURE',
+              upgradeTime: [9, 10, 11, 12], upgradeCost: [200, 600, 1800, 3500, null] },
+  RUPTURE:  { name: 'Rupture Pod',    cost: 90,  buildTime: 4,  tile: TILE.RUPTURE,  icon: '🪲', color: '#306050', hpMax: 80,   armorType: 'STRUCTURE',
               upgradeTime: [9, 10, 11, 12], upgradeCost: [200, 600, 1800, 3500, null] },
 });
 
@@ -146,6 +149,17 @@ const BALLISTA_STATS = Object.freeze({
   fireRate:   [0.5, 0.55, 0.6, 0.65, 0.75],
   projSpeed:  700,
   attackType: 'PHYSICAL',
+});
+
+// Rupture Pod 스탯 (레벨 1~5 배열) — 마법 원거리, 공중 유닛(flying) 전용
+// bugCount: 1발사 당 날벌레 수 (2레벨 단위 +1)
+const RUPTURE_STATS = Object.freeze({
+  range:      [6.0, 6.5, 7.0, 7.5, 8.0],
+  damage:     [28,  36,  46,  58,  72 ],
+  fireRate:   [0.7, 0.8, 0.9, 1.0, 1.1],
+  projSpeed:  160,
+  attackType: 'MAGICAL',
+  bugCount:   [1,   1,   2,   2,   3  ],
 });
 
 // 구조물 수리 스탯 (레벨 1~5 배열)
@@ -230,6 +244,14 @@ const ENEMY_DEFS = Object.freeze({
     ranged:true, rangedTiles:2.0, projSpeed:200,
     color:'#60a040', outlineColor:'#305020',
   },
+  WYVERN: {
+    name:'와이번 기수', hpMax:150, speed:90, damage:30, reward:35,
+    attackDmg:20, attackRate:0.9, radius:11, slotCost:2,
+    attackType:'PHYSICAL', armorType:'PHYSICAL',
+    ranged:true, rangedTiles:2.0, projSpeed:190,
+    flying:true,  // 공중 유닛: 성벽 통과, 방어타워 무시
+    color:'#5090c0', outlineColor:'#20507a',
+  },
   NOVICE_HERO: {
     name:'초보 용사', hpMax:50000, speed:40, damage:0, reward:0,
     attackDmg:200, attackRate:1.5, radius:20, slotCost:10,
@@ -246,20 +268,20 @@ const ENEMY_DEFS = Object.freeze({
 // interval: 다음 스폰 배치까지 대기 시간(초)
 // 마지막 구간(540s~)이 게임 종료(600s)까지 유지된다.
 const SPAWN_SCHEDULE = Object.freeze([
-  { timeStart:   0, citizen:2, scout:0,  fast:0, tanker:0, warrior:0, mage:0, archer:0, interval:7.0 },
-  { timeStart: 120, citizen:0, scout:4,  fast:0, tanker:0, warrior:0, mage:0, archer:0, interval:6.0 },
-  { timeStart: 180, citizen:0, scout:6,  fast:1, tanker:0, warrior:0, mage:0, archer:0, interval:5.5 },
-  { timeStart: 240, citizen:0, scout:8,  fast:2, tanker:0, warrior:0, mage:0, archer:0, interval:5.0 },
-  { timeStart: 300, citizen:0, scout:10, fast:3, tanker:1, warrior:0, mage:0, archer:0, interval:4.5 },
-  { timeStart: 360, citizen:0, scout:12, fast:5, tanker:2, warrior:0, mage:0, archer:0, interval:4.0 },
-  { timeStart: 420, citizen:0, scout:14, fast:6, tanker:2, warrior:1, mage:1, archer:1, interval:4.0 },
-  { timeStart: 480, citizen:0, scout:15, fast:7, tanker:3, warrior:1, mage:1, archer:2, interval:3.5 },
-  { timeStart: 540, citizen:0, scout:15, fast:7, tanker:3, warrior:2, mage:2, archer:2, interval:3.0 },
-  { timeStart: 600, citizen:0, scout:12, fast:8, tanker:4, warrior:2, mage:2, archer:3, interval:3.0 },
-  { timeStart: 660, citizen:0, scout:10, fast:9, tanker:4, warrior:3, mage:3, archer:3, interval:2.8 },
-  { timeStart: 720, citizen:0, scout:7,  fast:10, tanker:5, warrior:3, mage:3, archer:4, interval:2.5 },
-  { timeStart: 780, citizen:0, scout:5,  fast:11, tanker:6, warrior:4, mage:4, archer:5, interval:2.3 },
-  { timeStart: 840, citizen:0, scout:3,  fast:12, tanker:7, warrior:5, mage:5, archer:6, interval:2.0 },
+  { timeStart:   0, citizen:2, scout:0,  fast:0, tanker:0, warrior:0, mage:0, archer:0, wyvern:0, interval:7.0 },
+  { timeStart: 120, citizen:0, scout:4,  fast:0, tanker:0, warrior:0, mage:0, archer:0, wyvern:0, interval:6.0 },
+  { timeStart: 180, citizen:0, scout:6,  fast:1, tanker:0, warrior:0, mage:0, archer:0, wyvern:0, interval:5.5 },
+  { timeStart: 240, citizen:0, scout:8,  fast:2, tanker:0, warrior:0, mage:0, archer:0, wyvern:0, interval:5.0 },
+  { timeStart: 300, citizen:0, scout:10, fast:3, tanker:1, warrior:0, mage:0, archer:0, wyvern:0, interval:4.5 },
+  { timeStart: 360, citizen:0, scout:12, fast:5, tanker:2, warrior:0, mage:0, archer:0, wyvern:0, interval:4.0 },
+  { timeStart: 420, citizen:0, scout:14, fast:6, tanker:2, warrior:1, mage:1, archer:1, wyvern:0, interval:4.0 },
+  { timeStart: 480, citizen:0, scout:15, fast:7, tanker:3, warrior:1, mage:1, archer:2, wyvern:0, interval:3.5 },
+  { timeStart: 540, citizen:0, scout:15, fast:7, tanker:3, warrior:2, mage:2, archer:2, wyvern:1, interval:3.0 },
+  { timeStart: 600, citizen:0, scout:12, fast:8, tanker:4, warrior:2, mage:2, archer:3, wyvern:1, interval:3.0 },
+  { timeStart: 660, citizen:0, scout:10, fast:9, tanker:4, warrior:3, mage:3, archer:3, wyvern:2, interval:2.8 },
+  { timeStart: 720, citizen:0, scout:7,  fast:10, tanker:5, warrior:3, mage:3, archer:4, wyvern:2, interval:2.5 },
+  { timeStart: 780, citizen:0, scout:5,  fast:11, tanker:6, warrior:4, mage:4, archer:5, wyvern:3, interval:2.3 },
+  { timeStart: 840, citizen:0, scout:3,  fast:12, tanker:7, warrior:5, mage:5, archer:6, wyvern:3, interval:2.0 },
 ]);
 
 // 게임 전체 제한 시간
@@ -273,7 +295,7 @@ const WALL_MAX_CAPACITY = 5;
 // 등급별 동시 생존 최대 개체 수
 // 한도 초과분은 pendingSpawn에 보류되어 다음 배치 타이밍에 재시도한다.
 const ENEMY_CAP = Object.freeze({
-  CITIZEN:80, SCOUT:100, FAST:50, TANKER:30, WARRIOR:10, MAGE:10, ARCHER:40, NOVICE_HERO:1
+  CITIZEN:80, SCOUT:100, FAST:50, TANKER:30, WARRIOR:10, MAGE:10, ARCHER:40, WYVERN:15, NOVICE_HERO:1
 });
 
 // 게임 타이밍
@@ -346,7 +368,7 @@ function getBuildingCenter(b) {
 function isSolidTile(tile) {
   return tile === TILE.BLOCKED || tile === TILE.WALL || tile === TILE.THORN
       || tile === TILE.SPORE || tile === TILE.REPAIR_BLD || tile === TILE.RESOURCE
-      || tile === TILE.NEST  || tile === TILE.BALLISTA;
+      || tile === TILE.NEST  || tile === TILE.BALLISTA   || tile === TILE.RUPTURE;
 }
 
 /** 9지점 고체 타일 충돌 검사 — 적 이동 및 분리 양쪽에서 사용 */
@@ -564,7 +586,7 @@ function initGame() {
     gameTimer:     0,    // WAVE 상태 진입 후 경과 시간(초) — 스폰 스케줄 기준
     spawnTimer:    0,    // 다음 스폰 배치까지 남은 시간(초)
     scheduleIdx:   0,    // 현재 적용 중인 SPAWN_SCHEDULE 인덱스
-    pendingSpawn:  { CITIZEN: 0, SCOUT: 0, FAST: 0, TANKER: 0, WARRIOR: 0, MAGE: 0, ARCHER: 0, NOVICE_HERO: 0 }, // 캡 초과로 보류된 스폰 수
+    pendingSpawn:  { CITIZEN: 0, SCOUT: 0, FAST: 0, TANKER: 0, WARRIOR: 0, MAGE: 0, ARCHER: 0, WYVERN: 0, NOVICE_HERO: 0 }, // 캡 초과로 보류된 스폰 수
     enemyProjectiles: [], // 적(원거리)이 발사한 투사체
     countdown:     COUNTDOWN_DURATION,
     nestTile:     null, // { col, row } — 핵심 둥지 위치
@@ -755,7 +777,7 @@ function startUpgrade(building) {
   const def = BUILDING_DEFS[building.type];
   if (!building.built || building.upgrading) return false;
 
-  const LEVEL_BASED = ['THORN', 'SPORE', 'REPAIR', 'WALL', 'NEST', 'RESOURCE', 'BALLISTA'];
+  const LEVEL_BASED = ['THORN', 'SPORE', 'REPAIR', 'WALL', 'NEST', 'RESOURCE', 'BALLISTA', 'RUPTURE'];
   if (!LEVEL_BASED.includes(building.type)) return false;
 
   // 건물 유형별 최대 레벨
@@ -1245,6 +1267,7 @@ function buildBuildPanel() {
     { key: 'SPORE',    label: '산성포자' },
     { key: 'REPAIR',   label: '구조물수리' },
     { key: 'RESOURCE', label: '자원건물' },
+    { key: 'RUPTURE',  label: 'Rupture Pod' },
   ];
 
   for (const { key, label } of entries) {
@@ -1307,7 +1330,9 @@ function updateBuildPanel() {
     const cantAfford = G.resource < def.cost;
     const isNestPlaced = !!G.nestTile;
     const isNestBtn = key === 'NEST';
-    const inactive = panelOpen || cantAfford || (isNestBtn && isNestPlaced);
+    const nestLvCheck = (G.nestBuilding && G.nestBuilding.level) || 1;
+    const needsNestLv2 = (key === 'BALLISTA' || key === 'RUPTURE') && nestLvCheck < 2;
+    const inactive = panelOpen || cantAfford || (isNestBtn && isNestPlaced) || needsNestLv2;
     btn.classList.toggle('disabled', inactive);
   });
 }
@@ -1633,8 +1658,8 @@ function renderBuildings() {
         ctx.fillRect(bx, by, barW * progress, barH);
       }
 
-      // 레벨 표시: NEST/THORN/SPORE/REPAIR/WALL/RESOURCE/BALLISTA
-      if (!b.upgrading && ['NEST', 'THORN', 'SPORE', 'REPAIR', 'WALL', 'RESOURCE', 'BALLISTA'].includes(b.type)) {
+      // 레벨 표시: NEST/THORN/SPORE/REPAIR/WALL/RESOURCE/BALLISTA/RUPTURE
+      if (!b.upgrading && ['NEST', 'THORN', 'SPORE', 'REPAIR', 'WALL', 'RESOURCE', 'BALLISTA', 'RUPTURE'].includes(b.type)) {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'right';
@@ -1675,6 +1700,14 @@ function renderBuildings() {
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(bp.x, bp.y, BALLISTA_STATS.range[lv] * TILE_SIZE, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (sel.type === 'RUPTURE') {
+        ctx.strokeStyle = 'rgba(48, 200, 120, 0.45)';
+        ctx.fillStyle   = 'rgba(48, 200, 120, 0.06)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(bp.x, bp.y, RUPTURE_STATS.range[lv] * TILE_SIZE, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
       }
     }
@@ -1883,6 +1916,29 @@ function drawBuildingShape(ctx, type, x, y, color, renderW, renderH, level, aimA
       ctx.restore();
       break;
     }
+    case 'RUPTURE': {
+      // Rupture Pod: 타원형 포드 몸체 + 방사형 가시 + 내부 발광점
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, h * 0.55, h * 0.75, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 가시 4방향
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const ang = (i / 4) * Math.PI * 2 - Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(ang) * h * 0.55, cy + Math.sin(ang) * h * 0.55);
+        ctx.lineTo(cx + Math.cos(ang) * h * 0.9,  cy + Math.sin(ang) * h * 0.9);
+        ctx.stroke();
+      }
+      // 내부 발광 점 (밝은 청록)
+      ctx.fillStyle = '#80ffcc';
+      ctx.beginPath();
+      ctx.arc(cx, cy, h * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
   }
 }
 
@@ -1976,6 +2032,22 @@ function renderEnemies() {
       ctx.lineTo(x2, y2);
       ctx.stroke();
     }
+    // WYVERN: 날개 모양 (좌우 곡선 날개, 하늘색)
+    if (e.type === 'WYVERN') {
+      ctx.strokeStyle = '#90d0ff';
+      ctx.lineWidth = 1.5;
+      const wr = e.radius + 5;
+      // 왼쪽 날개
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y - 3);
+      ctx.bezierCurveTo(e.x - wr * 0.6, e.y - wr * 0.8, e.x - wr, e.y + 2, e.x - 3, e.y + 4);
+      ctx.stroke();
+      // 오른쪽 날개
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y - 3);
+      ctx.bezierCurveTo(e.x + wr * 0.6, e.y - wr * 0.8, e.x + wr, e.y + 2, e.x + 3, e.y + 4);
+      ctx.stroke();
+    }
 
     // HP 바
     const barW = e.radius * 2 + 4;
@@ -2015,6 +2087,33 @@ function renderFloatingTexts() {
 function renderProjectiles() {
   for (const p of G.projectiles) {
     const st = p.sourceType;
+
+    // RUPTURE 날벌레: 몸통 타원 + 날개 두 쌍
+    if (st === 'RUPTURE') {
+      const angle = Math.atan2(p.vy, p.vx);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(angle);
+      // 몸통
+      ctx.fillStyle = '#30c070';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 4, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 날개 (앞쪽 한 쌍)
+      ctx.strokeStyle = 'rgba(100, 220, 160, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-1, 0);
+      ctx.bezierCurveTo(-3, -5, -6, -3, -5, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-1, 0);
+      ctx.bezierCurveTo(-3,  5, -6,  3, -5, 0);
+      ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+
     const color   = st === 'BALLISTA' ? '#c060ff'
                   : st === 'THORN'    ? '#c03010'
                   : st === 'SPORE'    ? '#40d060'
@@ -2289,7 +2388,7 @@ function updateWave(dt) {
 }
 
 /**
- * 한 배치(citizen/scout/fast/tanker/warrior/mage)를 스폰한다.
+ * 한 배치(citizen/scout/fast/tanker/warrior/mage/archer/wyvern)를 스폰한다.
  * - 이번 배치 수 + 보류(pendingSpawn)를 합산해 실제 시도할 수를 구한다.
  * - 동시 생존 수(ENEMY_CAP)를 초과하는 분은 다시 pendingSpawn에 보관한다.
  * - 실제 스폰은 입구를 교대로 사용해 한 곳에 몰리지 않게 한다.
@@ -2317,6 +2416,7 @@ function spawnBatch(sched) {
   trySpawn('WARRIOR', sched.warrior);
   trySpawn('MAGE',    sched.mage);
   trySpawn('ARCHER',  sched.archer);
+  trySpawn('WYVERN',  sched.wyvern);
 }
 
 /** 10분 생존 성공 처리 */
@@ -2566,6 +2666,57 @@ function pursueTarget(e, dt) {
     e.slowedTimer -= dt;
   }
 
+  // ── 공중 유닛(flying) 전용: BFS 없이 직선 이동, WALL/방어타워 무시 ──
+  if (ENEMY_DEFS[e.type].flying) {
+    // 타겟 유효성 확인
+    let target = e.targetBldId ? G.buildings.find(b => b.id === e.targetBldId) : null;
+    if (target && (target.dead || !target.built)) { target = null; e.targetBldId = null; }
+
+    // 타겟 탐색 — WALL/THORN/SPORE/BALLISTA 제외, NEST 최우선
+    if (!target) {
+      const AERIAL_SKIP = new Set(['WALL', 'THORN', 'SPORE', 'BALLISTA']);
+      let bestBld = null, bestPriority = -1, bestDist = Infinity;
+      for (const b of G.buildings) {
+        if (!b.built || b.dead) continue;
+        if (AERIAL_SKIP.has(b.type)) continue;
+        const center = getBuildingCenter(b);
+        const d = Math.hypot(e.x - center.x, e.y - center.y);
+        const priority = b.type === 'NEST' ? 3 : b.type === 'RESOURCE' ? 2 : 1;
+        if (priority > bestPriority || (priority === bestPriority && d < bestDist)) {
+          bestPriority = priority; bestDist = d; bestBld = b;
+        }
+      }
+      if (bestBld) { target = bestBld; e.targetBldId = bestBld.id; }
+    }
+
+    // 타겟 없으면 NEST로 직선 이동
+    if (!target) {
+      if (G.nestBuilding) {
+        e.targetBldId = G.nestBuilding.id;
+        const nc = getBuildingCenter(G.nestBuilding);
+        moveToward(e, nc.x, nc.y, dt);
+      }
+      return;
+    }
+
+    const center = getBuildingCenter(target);
+    const dist = Math.hypot(e.x - center.x, e.y - center.y);
+    const attackRange = e.radius + TILE_SIZE * e.rangedTiles;
+
+    if (dist > attackRange) {
+      moveToward(e, center.x, center.y, dt);
+      return;
+    }
+
+    // 사거리 내 — 공격
+    e.attackTimer -= dt;
+    if (e.attackTimer <= 0) {
+      e.attackTimer = 1 / e.attackRate;
+      fireEnemyProjectile(e, target);
+    }
+    return;
+  }
+
   // ── 현재 타겟 유효성 확인 ──
   let target = e.targetBldId ? G.buildings.find(b => b.id === e.targetBldId) : null;
   if (target && (target.dead || !target.built)) { target = null; e.targetBldId = null; }
@@ -2713,7 +2864,7 @@ function updateTowers(dt) {
 
   for (const b of G.buildings) {
     if (!b.built) continue;
-    if (b.type !== 'THORN' && b.type !== 'SPORE' && b.type !== 'BALLISTA') continue;
+    if (b.type !== 'THORN' && b.type !== 'SPORE' && b.type !== 'BALLISTA' && b.type !== 'RUPTURE') continue;
 
     // ── BALLISTA: ranged 적 우선 타겟팅 ──────────────────────────────────────
     if (b.type === 'BALLISTA') {
@@ -2723,10 +2874,10 @@ function updateTowers(dt) {
       G.towerTimers[b.id] = (G.towerTimers[b.id] || 0) - dt;
       if (G.towerTimers[b.id] > 0) continue;
 
-      // 1순위: MAGE / ARCHER 우선
+      // 1순위: MAGE / ARCHER / WYVERN 우선
       let target = null, bestDist = Infinity;
       for (const e of livingEnemies) {
-        if (e.type !== 'MAGE' && e.type !== 'ARCHER') continue;
+        if (e.type !== 'MAGE' && e.type !== 'ARCHER' && e.type !== 'WYVERN') continue;
         const d = Math.hypot(e.x - bpx.x, e.y - bpx.y);
         if (d <= rangePixels && d < bestDist) { bestDist = d; target = e; }
       }
@@ -2749,6 +2900,40 @@ function updateTowers(dt) {
       G.towerTimers[b.id] = 1 / ballistaRate;
       b.aimAngle = Math.atan2(target.y - bpx.y, target.x - bpx.x);
       fireProjectile(b, target, bpx, ballistaDmg, BALLISTA_STATS.attackType);
+      continue;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── RUPTURE POD: 공중 유닛(flying) 전용, 다수 날벌레 유도 투사체 ─────────
+    if (b.type === 'RUPTURE') {
+      const lv = b.level - 1;
+      const rangePixels = RUPTURE_STATS.range[lv] * TILE_SIZE;
+      const bpx = getBuildingCenter(b);
+      G.towerTimers[b.id] = (G.towerTimers[b.id] || 0) - dt;
+      if (G.towerTimers[b.id] > 0) continue;
+
+      // 사거리 내 flying 적만 타겟팅 — 가장 가까운 적 선택
+      let target = null, bestDist = Infinity;
+      for (const e of livingEnemies) {
+        if (!ENEMY_DEFS[e.type].flying) continue;
+        const d = Math.hypot(e.x - bpx.x, e.y - bpx.y);
+        if (d <= rangePixels && d < bestDist) { bestDist = d; target = e; }
+      }
+
+      const towerBoostLv = G.globalUpgrades.TOWER_BOOST;
+      const rupRate = RUPTURE_STATS.fireRate[lv] * (1 + towerBoostLv * 0.02);
+      G.towerTimers[b.id] = 1 / rupRate;
+      if (!target) continue;
+
+      const bugCount = RUPTURE_STATS.bugCount[lv];
+      const rupDmg   = Math.round(RUPTURE_STATS.damage[lv] * (1 + towerBoostLv * 0.03));
+      const mult     = (DAMAGE_TABLE[RUPTURE_STATS.attackType] || {})[target.armorType] || 1.0;
+      const finalDmg = Math.round(rupDmg * mult);
+      for (let i = 0; i < bugCount; i++) {
+        // 약간의 발사 오프셋으로 날벌레가 흩어져 나오는 느낌
+        const angleOffset = bugCount > 1 ? (i / (bugCount - 1) - 0.5) * 0.4 : 0;
+        fireRuptureBug(b, target, bpx, finalDmg, angleOffset);
+      }
       continue;
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -2810,6 +2995,32 @@ function fireProjectile(building, target, towerPixel, damage, attackType) {
   });
 }
 
+/** Rupture Pod 날벌레 투사체 발사 — 공중 유닛 전용 유도 */
+function fireRuptureBug(building, target, towerPixel, damage, angleOffset) {
+  const dx   = target.x - towerPixel.x;
+  const dy   = target.y - towerPixel.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 1) return;
+  // 오프셋 각도 적용
+  const baseAngle = Math.atan2(dy, dx) + angleOffset;
+  const spd = RUPTURE_STATS.projSpeed;
+  G.projectiles.push({
+    id:          G.nextId++,
+    x:           towerPixel.x,
+    y:           towerPixel.y,
+    vx:          Math.cos(baseAngle) * spd,
+    vy:          Math.sin(baseAngle) * spd,
+    speed:       spd,
+    damage,
+    targetId:    target.id,
+    homing:      true,
+    attackType:  RUPTURE_STATS.attackType,
+    sourceType:  'RUPTURE',
+    aerialOnly:  true,   // 공중 유닛만 타격
+    sourceBldId: building.id,  // 귀환 목적지 타워
+  });
+}
+
 function fireEnemyProjectile(enemy, target) {
   const tp   = getBuildingCenter(target);
   const dx   = tp.x - enemy.x;
@@ -2835,20 +3046,50 @@ function updateProjectiles(dt) {
   for (const p of G.projectiles) {
     // 유도 투사체 — 타겟 방향으로 속도 벡터 갱신
     if (p.homing) {
-      const ht = G.enemies.find(e => e.id === p.targetId && !e.dead);
-      if (ht) {
-        const hdx = ht.x - p.x;
-        const hdy = ht.y - p.y;
-        const hd  = Math.hypot(hdx, hdy);
-        if (hd > 1) {
-          p.vx = (hdx / hd) * p.speed;
-          p.vy = (hdy / hd) * p.speed;
+      if (p.returningToNest) {
+        // 귀환 중: 발사 타워 중심으로 유도
+        const srcBld = G.buildings.find(b => b.id === p.sourceBldId && !b.dead);
+        if (srcBld) {
+          const sc  = getBuildingCenter(srcBld);
+          const hdx = sc.x - p.x;
+          const hdy = sc.y - p.y;
+          const hd  = Math.hypot(hdx, hdy);
+          if (hd > 1) {
+            p.vx = (hdx / hd) * p.speed;
+            p.vy = (hdy / hd) * p.speed;
+          }
+        }
+      } else {
+        const ht = G.enemies.find(e => e.id === p.targetId && !e.dead);
+        if (ht) {
+          const hdx = ht.x - p.x;
+          const hdy = ht.y - p.y;
+          const hd  = Math.hypot(hdx, hdy);
+          if (hd > 1) {
+            p.vx = (hdx / hd) * p.speed;
+            p.vy = (hdy / hd) * p.speed;
+          }
         }
       }
     }
 
     p.x += p.vx * dt;
     p.y += p.vy * dt;
+
+    // 귀환 중 날벌레: 발사 타워에 도착하면 소멸
+    if (p.returningToNest) {
+      const srcBld = G.buildings.find(b => b.id === p.sourceBldId && !b.dead);
+      if (!srcBld) {
+        // 타워가 파괴된 경우 즉시 소멸
+        toRemove.push(p.id);
+        continue;
+      }
+      const sc = getBuildingCenter(srcBld);
+      if (Math.hypot(p.x - sc.x, p.y - sc.y) < TILE_SIZE * 0.8) {
+        toRemove.push(p.id);
+        continue;
+      }
+    }
 
     // 목표 적 추적 히트 판정
     const target = G.enemies.find(e => e.id === p.targetId && !e.dead);
@@ -2892,6 +3133,29 @@ function updateProjectiles(dt) {
         toRemove.push(p.id);
       }
     } else {
+      // 타겟이 죽었으면 처리 분기
+      if (p.aerialOnly) {
+        // 이미 귀환 중이면 재유도 없이 유지
+        if (!p.returningToNest) {
+          // RUPTURE 날벌레: 근접 flying 적에게 재유도, 없으면 NEST로 귀환
+          let newTarget = null, nearDist = Infinity;
+          for (const e of G.enemies) {
+            if (e.dead || !ENEMY_DEFS[e.type].flying) continue;
+            const d = Math.hypot(p.x - e.x, p.y - e.y);
+            if (d < nearDist) { nearDist = d; newTarget = e; }
+          }
+          if (newTarget) {
+            p.targetId = newTarget.id;
+            p.homing   = true;
+          } else {
+            // 공중 타겟 없음 — NEST로 귀환
+            p.targetId        = null;
+            p.homing          = true;
+            p.returningToNest = true;
+          }
+        }
+        continue;
+      }
       // 타겟이 죽었으면 유도 해제, 직선으로 계속 날아감
       p.homing = false;
       // 경로 상 다른 적과 충돌 판정
@@ -3108,9 +3372,9 @@ function openBuildingPanel(building) {
 
   const def = BUILDING_DEFS[building.type];
 
-  if (building.type === 'THORN') {
+  if (building.type === 'THORN' || building.type === 'RUPTURE') {
     bpIcon.textContent = '';
-    bpIcon.appendChild(makeBuildingIconCanvas('THORN', def.color, 24));
+    bpIcon.appendChild(makeBuildingIconCanvas(building.type, def.color, 24));
   } else {
     bpIcon.textContent = def.icon;
   }
@@ -3118,7 +3382,7 @@ function openBuildingPanel(building) {
 
   // 상태 문자열
   const maxLv = building.type === 'WALL' ? 30 : building.type === 'NEST' ? 3 : 5;
-  const isLevelBased = ['THORN', 'SPORE', 'REPAIR', 'WALL', 'NEST', 'RESOURCE', 'BALLISTA'].includes(building.type);
+  const isLevelBased = ['THORN', 'SPORE', 'REPAIR', 'WALL', 'NEST', 'RESOURCE', 'BALLISTA', 'RUPTURE'].includes(building.type);
 
   let statusStr = '';
   if (!building.built) {
@@ -3179,6 +3443,14 @@ function openBuildingPanel(building) {
     const balBonusDmg = Math.round(balBaseDmg * balBoostLv * 0.03);
     const balDmgStr = balBonusDmg > 0 ? `${balBaseDmg}+${balBonusDmg}` : `${balBaseDmg}`;
     specStr = `공격력: ${balDmgStr} | 사거리: ${BALLISTA_STATS.range[lv]}타일 | 속도: ${BALLISTA_STATS.fireRate[lv]}/s | 원거리 우선${_defStr}`;
+  } else if (building.type === 'RUPTURE') {
+    const lv = (building.level || 1) - 1;
+    const rupBoostLv = G.globalUpgrades.TOWER_BOOST;
+    const rupBaseDmg = RUPTURE_STATS.damage[lv];
+    const rupBonusDmg = Math.round(rupBaseDmg * rupBoostLv * 0.03);
+    const rupDmgStr = rupBonusDmg > 0 ? `${rupBaseDmg}+${rupBonusDmg}` : `${rupBaseDmg}`;
+    const bugCnt = RUPTURE_STATS.bugCount[lv];
+    specStr = `공격력: ${rupDmgStr}×${bugCnt} | 사거리: ${RUPTURE_STATS.range[lv]}타일 | 속도: ${RUPTURE_STATS.fireRate[lv]}/s | 공중 전용${_defStr}`;
   } else if (building.type === 'NEST') {
     specStr = `거점 건물 — 파괴 시 게임 오버${_defStr}`;
   }
@@ -3412,6 +3684,7 @@ const BUILD_GROUPS = Object.freeze([
     { key: 'THORN',    label: '가시촉수' },
     { key: 'SPORE',    label: '산성포자' },
     { key: 'BALLISTA', label: '외골격가시' },
+    { key: 'RUPTURE',  label: 'Rupture' },
   ],
 ]);
 
@@ -3516,12 +3789,23 @@ function openRadialMenu(clientX, clientY, col, row) {
     el.style.left = ix + 'px';
     el.style.top  = iy + 'px';
 
-    if (G.resource < def.cost) {
+    const nestLvNow = (G.nestBuilding && G.nestBuilding.level) || 1;
+    const needsNestLv2 = (key === 'BALLISTA' || key === 'RUPTURE') && nestLvNow < 2;
+    if (G.resource < def.cost || needsNestLv2) {
       el.classList.add('insufficient');
+    }
+    if (needsNestLv2) {
+      el.title = '둥지 Lv.2 이상 필요';
     }
 
     el.addEventListener('click', (e) => {
       e.stopPropagation();
+      const nestLv = (G.nestBuilding && G.nestBuilding.level) || 1;
+      if ((key === 'BALLISTA' || key === 'RUPTURE') && nestLv < 2) {
+        showStatus('둥지 Lv.2 이상 필요');
+        closeRadialMenu();
+        return;
+      }
       if (G.resource < def.cost) {
         showStatus('자원이 부족합니다!');
         closeRadialMenu();
