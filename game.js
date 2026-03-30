@@ -2570,7 +2570,7 @@ function updateAoeFlashes(dt) {
  *   둘 다 이동 중 → 0.5/0.5 동등 분할
  */
 function resolveCapsuleCollisions() {
-  const living = G.enemies.filter(e => !e.dead);
+  const living = G.enemies.filter(e => !e.dead && !ENEMY_DEFS[e.type].flying);
   if (living.length < 2) return;
 
   // ── 공격 중 여부 판별 ────────────────────────────────────────────────
