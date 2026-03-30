@@ -344,13 +344,7 @@ const STAGES = (() => {
   // rawGrid 생성 — IIFE 내부이므로 TILE 상수 사용 가능
   const s0grid = Array.from({length: s0rows}, () => Array(s0cols).fill(0)); // EMPTY=0
 
-  // 맵 최외곽 벽
-  for (let c = 0; c < s0cols; c++) {
-    s0grid[0][c] = 1; s0grid[s0rows - 1][c] = 1; // BLOCKED=1
-  }
-  for (let r = 0; r < s0rows; r++) {
-    s0grid[r][0] = 1; s0grid[r][s0cols - 1] = 1;
-  }
+  // 맵 최외곽 벽 — 시각 마스크로 가리므로 BLOCKED 제거 (적 끼임 방지)
 
   // 내부 기지 외벽 — wallProfile
   const wallProfile = [
@@ -559,6 +553,9 @@ function moveToward(e, tx, ty, dt) {
       e.y = oldY;
     }
   }
+  // 월드 경계 클램핑 — 외곽 BLOCKED 제거 후 맵 밖 이탈 방지
+  e.x = Math.max(e.radius, Math.min(COLS * TILE_SIZE - e.radius, e.x));
+  e.y = Math.max(e.radius, Math.min(ROWS * TILE_SIZE - e.radius, e.y));
 }
 
 
@@ -2225,6 +2222,15 @@ function render() {
   // 6. 피해량 플로팅 텍스트
   renderFloatingTexts();
 
+  // 7. 외곽 1타일 마스크 — 플레이어 시야 차단 (외곽 BLOCKED 제거 대응)
+  const maskW = COLS * TILE_SIZE;
+  const maskH = ROWS * TILE_SIZE;
+  ctx.fillStyle = 'rgba(0,0,0,0.97)';
+  ctx.fillRect(0,              0,              TILE_SIZE, maskH);           // 좌
+  ctx.fillRect(maskW - TILE_SIZE, 0,           TILE_SIZE, maskH);           // 우
+  ctx.fillRect(0,              0,              maskW,     TILE_SIZE);        // 상
+  ctx.fillRect(0, maskH - TILE_SIZE,           maskW,     TILE_SIZE);        // 하
+
   ctx.restore();
 }
 
@@ -2877,17 +2883,18 @@ function updateTowers(dt) {
       G.towerTimers[b.id] = (G.towerTimers[b.id] || 0) - dt;
       if (G.towerTimers[b.id] > 0) continue;
 
-      // 1순위: MAGE / ARCHER / WYVERN 우선
+      // 1순위: MAGE / ARCHER 우선 (원거리 지상 적)
       let target = null, bestDist = Infinity;
       for (const e of livingEnemies) {
-        if (e.type !== 'MAGE' && e.type !== 'ARCHER' && e.type !== 'WYVERN') continue;
+        if (e.type !== 'MAGE' && e.type !== 'ARCHER') continue;
         const d = Math.hypot(e.x - bpx.x, e.y - bpx.y);
         if (d <= rangePixels && d < bestDist) { bestDist = d; target = e; }
       }
-      // 2순위: 일반 적 fallback
+      // 2순위: 지상 적 fallback (공중 유닛 제외)
       if (!target) {
         bestDist = Infinity;
         for (const e of livingEnemies) {
+          if (ENEMY_DEFS[e.type].flying) continue;
           const d = Math.hypot(e.x - bpx.x, e.y - bpx.y);
           if (d <= rangePixels && d < bestDist) { bestDist = d; target = e; }
         }
