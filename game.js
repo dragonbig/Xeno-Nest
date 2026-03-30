@@ -2953,6 +2953,7 @@ function updateTowers(dt) {
     let bestDist = Infinity;
 
     for (const e of livingEnemies) {
+      if (ENEMY_DEFS[e.type].flying) continue; // 지상 타워는 공중 유닛 공격 불가
       const d = Math.hypot(e.x - bpx.x, e.y - bpx.y);
       if (d <= rangePixels && d < bestDist) {
         bestDist = d;
